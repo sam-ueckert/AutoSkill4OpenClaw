@@ -21,12 +21,13 @@ from autoskill.embeddings.factory import build_embeddings
 from autoskill.management.stores.hybrid_rank import blend_scores, tokenize_for_bm25
 
 from ..core.common import dedupe_strings, normalize_text
+from ..core.config import DEFAULT_RETRIEVAL_SCORE_THRESHOLD
 from ..models import SkillSpec
 from .layout import retrieval_cache_path
 
-DEFAULT_RETRIEVAL_LIMIT = 8
+DEFAULT_RETRIEVAL_LIMIT = 2
 DEFAULT_BM25_WEIGHT = 0.1
-_RETRIEVAL_CACHE_SCHEMA = "autoskill.document_skill_retrieval.v1"
+_RETRIEVAL_CACHE_SCHEMA = "autoskill.document_skill_retrieval.v2"
 
 
 def _dot(a: Sequence[float], b: Sequence[float]) -> float:
@@ -41,6 +42,13 @@ def _text_hash(text: str) -> str:
     """Builds a stable hash for one retrieval text payload."""
 
     return hashlib.sha256(str(text or "").encode("utf-8")).hexdigest()
+
+
+def _config_signature(config: Dict[str, Any]) -> str:
+    """Builds a stable signature for one embedding config payload."""
+
+    raw = json.dumps(dict(config or {}), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def _granularity_rank(value: str) -> int:
@@ -88,6 +96,44 @@ def _asset_node_id(skill: SkillSpec) -> str:
     """Returns the configured hierarchical asset node id for one skill."""
 
     return str(getattr(skill, "asset_node_id", "") or _metadata_value(skill, "asset_node_id")).strip()
+
+
+def _similarity_gate(
+    candidate: SkillSpec,
+    other: SkillSpec,
+    *,
+    score: float,
+    threshold: float,
+) -> bool:
+    """Applies a lightweight semantic gate on top of the blended retrieval score."""
+
+    if float(score or 0.0) < float(threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD):
+        return False
+    if (
+        str(candidate.asset_type or "").strip() == str(other.asset_type or "").strip()
+        and str(candidate.granularity or "").strip() == str(other.granularity or "").strip()
+    ):
+        return True
+    candidate_node = _asset_node_id(candidate)
+    other_node = _asset_node_id(other)
+    if candidate_node and other_node and candidate_node == other_node:
+        return True
+    for field in ("task_family", "method_family", "stage"):
+        left = normalize_text(getattr(candidate, field, ""), lower=True)
+        right = normalize_text(getattr(other, field, ""), lower=True)
+        if left and right and left == right:
+            return True
+    candidate_tokens = {
+        token
+        for token in normalize_text(f"{candidate.name} {candidate.objective}", lower=True).split()
+        if token
+    }
+    other_tokens = {
+        token
+        for token in normalize_text(f"{other.name} {other.objective}", lower=True).split()
+        if token
+    }
+    return len(candidate_tokens & other_tokens) >= 2
 
 
 def _bm25_scores_from_tokens(
@@ -206,10 +252,14 @@ class DocumentSkillRetriever:
         embeddings: Optional[EmbeddingModel],
         bm25_weight: float = DEFAULT_BM25_WEIGHT,
         cache_path: str = "",
+        embeddings_signature: str = "",
+        score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
     ) -> None:
         self._embeddings = embeddings
         self._bm25_weight = float(bm25_weight)
         self._cache_path = os.path.abspath(os.path.expanduser(str(cache_path or "").strip())) if str(cache_path or "").strip() else ""
+        self._embeddings_signature = str(embeddings_signature or "").strip()
+        self._score_threshold = max(0.0, float(score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD))
         self._skills: Dict[str, SkillSpec] = {}
         self._texts: Dict[str, str] = {}
         self._tokens: Dict[str, List[str]] = {}
@@ -229,6 +279,8 @@ class DocumentSkillRetriever:
             return
         if not isinstance(payload, dict) or str(payload.get("schema") or "").strip() != _RETRIEVAL_CACHE_SCHEMA:
             return
+        cached_signature = str(payload.get("embeddings_signature") or "").strip()
+        vectors_compatible = bool(cached_signature) and cached_signature == self._embeddings_signature
         entries = payload.get("entries")
         if not isinstance(entries, dict):
             return
@@ -243,7 +295,7 @@ class DocumentSkillRetriever:
             if skill_id_s and isinstance(tokens, list):
                 self._tokens[skill_id_s] = [str(token or "").strip().lower() for token in tokens if str(token or "").strip()]
             vector = item.get("vector")
-            if skill_id_s and isinstance(vector, list):
+            if vectors_compatible and skill_id_s and isinstance(vector, list):
                 vec = [float(x) for x in list(vector or []) if x is not None]
                 if vec:
                     self._vectors[skill_id_s] = vec
@@ -255,6 +307,7 @@ class DocumentSkillRetriever:
             return
         payload = {
             "schema": _RETRIEVAL_CACHE_SCHEMA,
+            "embeddings_signature": self._embeddings_signature,
             "entries": {
                 skill_id: {
                     "text": self._texts.get(skill_id, ""),
@@ -438,16 +491,19 @@ class DocumentSkillRetriever:
             elif _granularity_rank(item.granularity) < _granularity_rank(candidate.granularity):
                 # Keep broader parent skills available for split detection.
                 score += 0.05
-            return score
+            return max(0.0, min(1.0, score))
 
         ranked = sorted(pool, key=boosted_score, reverse=True)
         hits: List[SkillRetrievalHit] = []
         for skill in ranked[: max(1, int(limit or DEFAULT_RETRIEVAL_LIMIT))]:
             skill_id = str(skill.skill_id or "").strip()
+            score = float(boosted_score(skill))
+            if not _similarity_gate(candidate, skill, score=score, threshold=self._score_threshold):
+                continue
             hits.append(
                 SkillRetrievalHit(
                     skill=skill,
-                    score=float(boosted_score(skill)),
+                    score=score,
                     vector_score=float(vector_scores.get(skill_id, 0.0)),
                     bm25_score=float(bm25_scores.get(skill_id, 0.0)),
                 )
@@ -542,10 +598,13 @@ class DocumentSkillRetriever:
         hits: List[SkillRetrievalHit] = []
         for skill in ranked[: max(1, int(limit or 5))]:
             skill_id = str(skill.skill_id or "").strip()
+            score = max(0.0, min(1.0, float(merged.get(skill_id, 0.0))))
+            if not _similarity_gate(candidate, skill, score=score, threshold=self._score_threshold):
+                continue
             hits.append(
                 SkillRetrievalHit(
                     skill=skill,
-                    score=float(merged.get(skill_id, 0.0)),
+                    score=score,
                     vector_score=float(vector_scores.get(skill_id, 0.0)),
                     bm25_score=float(bm25_scores.get(skill_id, 0.0)),
                 )
@@ -557,6 +616,7 @@ def build_document_skill_retriever(
     *,
     embeddings_config: Optional[Dict[str, Any]] = None,
     bm25_weight: float = DEFAULT_BM25_WEIGHT,
+    score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
     base_store_root: str = "",
     cache_path: str = "",
 ) -> DocumentSkillRetriever:
@@ -567,4 +627,10 @@ def build_document_skill_retriever(
         config = {"provider": "hashing", "dims": 256}
     embeddings = build_embeddings(config)
     resolved_cache_path = str(cache_path or "").strip() or retrieval_cache_path(base_store_root)
-    return DocumentSkillRetriever(embeddings=embeddings, bm25_weight=bm25_weight, cache_path=resolved_cache_path)
+    return DocumentSkillRetriever(
+        embeddings=embeddings,
+        bm25_weight=bm25_weight,
+        cache_path=resolved_cache_path,
+        embeddings_signature=_config_signature(config),
+        score_threshold=score_threshold,
+    )

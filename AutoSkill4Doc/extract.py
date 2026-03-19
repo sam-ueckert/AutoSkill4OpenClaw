@@ -35,6 +35,7 @@ from .core.config import (
     DEFAULT_DOC_SKILL_USER_ID,
     DEFAULT_EXTRACT_STRATEGY,
     DEFAULT_MAX_SECTION_CHARS,
+    DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
     SUPPORTED_EXTRACT_STRATEGIES,
     SUPPORTED_SECTION_OUTLINE_MODES,
     default_store_path,
@@ -339,6 +340,7 @@ def extract_from_doc(
     extract_workers: int = 1,
     extract_retries: int = 3,
     extract_retry_backoff_s: float = 1.0,
+    retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
     max_section_chars: int = DEFAULT_MAX_SECTION_CHARS,
     section_outline_mode: str = "auto",
     family_name: str = "",
@@ -416,6 +418,7 @@ def extract_from_doc(
         taxonomy=taxonomy,
         extract_retries=max(0, int(extract_retries or 0)),
         extract_retry_backoff_s=max(0.0, float(extract_retry_backoff_s or 0.0)),
+        retrieval_score_threshold=max(0.0, float(retrieval_score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD)),
     )
     result = pipeline.build(
         user_id=str(user_id or "").strip() or DEFAULT_DOC_SKILL_USER_ID,
@@ -678,6 +681,10 @@ def _build_pipeline_from_args(
         extract_workers=max(1, int(getattr(args, "extract_workers", 1) or 1)),
         extract_retries=max(0, int(getattr(args, "extract_retries", 3) or 0)),
         extract_retry_backoff_s=max(0.0, float(getattr(args, "extract_retry_backoff_s", 1.0) or 0.0)),
+        retrieval_score_threshold=max(
+            0.0,
+            float(getattr(args, "retrieval_score_threshold", DEFAULT_RETRIEVAL_SCORE_THRESHOLD) or 0.0),
+        ),
     )
 
 
@@ -895,6 +902,12 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=1.0,
         help="Base backoff seconds for extract retries; exponential backoff is applied per retry.",
+    )
+    parser.add_argument(
+        "--retrieval-score-threshold",
+        type=float,
+        default=DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
+        help="Minimum retrieval score required before similar-skill or parent hits are kept for downstream versioning decisions.",
     )
 
 

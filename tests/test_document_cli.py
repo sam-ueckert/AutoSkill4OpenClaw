@@ -394,6 +394,19 @@ class DocumentCliTest(unittest.TestCase):
         self.assertEqual(args.extract_retries, 5)
         self.assertAlmostEqual(args.extract_retry_backoff_s, 0.25)
 
+    def test_document_cli_accepts_retrieval_score_threshold(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "build",
+                "--file",
+                "/tmp/paper.md",
+                "--retrieval-score-threshold",
+                "0.45",
+            ]
+        )
+
+        self.assertAlmostEqual(args.retrieval_score_threshold, 0.45)
+
     def test_document_cli_supports_fail_fast_flag(self) -> None:
         args = build_parser().parse_args(["build", "--file", "/tmp/paper.md", "--fail-fast"])
 

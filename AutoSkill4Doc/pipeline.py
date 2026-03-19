@@ -24,6 +24,7 @@ from .core.config import (
     DEFAULT_DOC_SKILL_USER_ID,
     DEFAULT_EXTRACT_STRATEGY,
     DEFAULT_MAX_SECTION_CHARS,
+    DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
     default_store_path,
 )
 from .core.provider_config import allow_mock_provider, ensure_runtime_llm_provider
@@ -114,6 +115,7 @@ class DocumentBuildPipeline:
         taxonomy: Optional[SkillTaxonomy] = None,
         family_resolver: Optional[DocumentFamilyResolver] = None,
         logger: StageLogger = None,
+        retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
     ) -> None:
         """Builds a pipeline with replaceable stage implementations."""
 
@@ -125,6 +127,7 @@ class DocumentBuildPipeline:
         self.taxonomy = taxonomy or load_skill_taxonomy()
         self.family_resolver = family_resolver or build_document_family_resolver(taxonomy=self.taxonomy)
         self.logger = logger
+        self.retrieval_score_threshold = max(0.0, float(retrieval_score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD))
 
     def _ensure_runtime_llm(self, *, context: str) -> None:
         """Prevents user-facing extraction paths from silently using mock."""
@@ -402,6 +405,7 @@ class DocumentBuildPipeline:
             target_state=target_state,
             logger=self.logger,
             progress_callback=progress_callback,
+            retrieval_score_threshold=self.retrieval_score_threshold,
         )
 
     def build(
@@ -749,6 +753,7 @@ def build_default_document_pipeline(
     extract_workers: int = 1,
     extract_retries: int = 3,
     extract_retry_backoff_s: float = 1.0,
+    retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
 ) -> DocumentBuildPipeline:
     """Builds the default staged document pipeline."""
 
@@ -790,4 +795,5 @@ def build_default_document_pipeline(
             taxonomy=effective_taxonomy,
             llm_config=dict(getattr(getattr(sdk, "config", None), "llm", {}) or {}),
         ),
+        retrieval_score_threshold=max(0.0, float(retrieval_score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD)),
     )

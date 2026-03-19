@@ -24,7 +24,7 @@ from ..core.common import (
     normalize_text,
     summarize_names,
 )
-from ..core.config import DEFAULT_DOC_SKILL_USER_ID
+from ..core.config import DEFAULT_DOC_SKILL_USER_ID, DEFAULT_RETRIEVAL_SCORE_THRESHOLD
 from ..core.llm_utils import (
     clip_confidence,
     coerce_str_list,
@@ -750,7 +750,7 @@ class VersionManager:
         compact_existing = [
             self._skill_for_change_llm(existing, support_by_id=support_by_id)
             for existing in list(existing_skills or [])
-        ][:3]
+        ][:DEFAULT_RETRIEVAL_LIMIT]
         if not compact_existing:
             payload = {"candidate_skill": compact_candidate}
             system = (
@@ -1843,6 +1843,7 @@ def register_versions(
     target_state: VersionState = VersionState.ACTIVE,
     logger: StageLogger = None,
     progress_callback: StageProgressCallback = None,
+    retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
 ) -> VersionRegistrationResult:
     """
     Registers a compiled batch into the document registry and optionally the skill store.
@@ -1858,6 +1859,7 @@ def register_versions(
     retriever = build_document_skill_retriever(
         embeddings_config=embeddings_config,
         bm25_weight=bm25_weight,
+        score_threshold=max(0.0, float(retrieval_score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD)),
         base_store_root=store_root,
     )
     manager = VersionManager(

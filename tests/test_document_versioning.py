@@ -700,6 +700,84 @@ class DocumentVersioningTest(unittest.TestCase):
 
         self.assertEqual(["match"], [hit.skill.skill_id for hit in hits])
 
+    def test_document_retriever_filters_low_similarity_hits(self) -> None:
+        retriever = build_document_skill_retriever(
+            embeddings_config={"provider": "hashing", "dims": 64},
+            bm25_weight=0.1,
+        )
+        unrelated = self._skill(
+            skill_id="unrelated",
+            name="危机转介规则",
+            objective="Handle crisis referral and escalation.",
+            workflow_steps=["评估危机。", "安排转介。"],
+            support_ids=["sup-unrelated"],
+            method_family="safety",
+            task_family="crisis",
+            stage="triage",
+        )
+        unrelated.metadata["family_name"] = "认知行为疗法"
+        unrelated.metadata["domain_type"] = "psychology"
+
+        candidate = self._skill(
+            skill_id="candidate",
+            name="认知重评会谈流程",
+            objective="Run an agenda-based CBT cognitive reframing session.",
+            workflow_steps=["建立议程。", "识别自动思维。", "进行重评。"],
+            support_ids=["sup-candidate"],
+            method_family="cbt",
+            task_family="cognitive_restructuring",
+            stage="session_work",
+        )
+        candidate.metadata["family_name"] = "认知行为疗法"
+        candidate.metadata["domain_type"] = "psychology"
+
+        retriever.refresh([unrelated])
+        hits = retriever.search(candidate)
+
+        self.assertEqual([], hits)
+
+    def test_document_retriever_honors_custom_score_threshold(self) -> None:
+        base_kwargs = {
+            "embeddings_config": {"provider": "hashing", "dims": 64},
+            "bm25_weight": 0.1,
+        }
+        matching = self._skill(
+            skill_id="match",
+            name="认知重评会谈流程",
+            objective="Run an agenda-based CBT cognitive reframing session.",
+            workflow_steps=["建立议程。", "识别自动思维。", "进行重评。", "总结与作业。"],
+            support_ids=["sup-match"],
+            method_family="cbt",
+            task_family="cognitive_restructuring",
+            stage="session_work",
+        )
+        matching.metadata["family_name"] = "认知行为疗法"
+        matching.metadata["domain_type"] = "psychology"
+
+        candidate = self._skill(
+            skill_id="candidate",
+            name="认知重评会谈流程",
+            objective="Run an agenda-based CBT cognitive reframing session.",
+            workflow_steps=["建立议程。", "识别自动思维。", "进行重评。", "总结与作业。"],
+            support_ids=["sup-candidate"],
+            method_family="cbt",
+            task_family="cognitive_restructuring",
+            stage="session_work",
+        )
+        candidate.metadata["family_name"] = "认知行为疗法"
+        candidate.metadata["domain_type"] = "psychology"
+
+        low_threshold = build_document_skill_retriever(score_threshold=0.3, **base_kwargs)
+        low_threshold.refresh([matching])
+        low_hits = low_threshold.search(candidate, limit=2)
+
+        high_threshold = build_document_skill_retriever(score_threshold=1.01, **base_kwargs)
+        high_threshold.refresh([matching])
+        high_hits = high_threshold.search(candidate, limit=2)
+
+        self.assertEqual(["match"], [hit.skill.skill_id for hit in low_hits])
+        self.assertEqual([], high_hits)
+
     def test_document_retriever_persists_vectors_and_bm25_tokens(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             retriever = build_document_skill_retriever(
