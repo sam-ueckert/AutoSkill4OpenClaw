@@ -36,6 +36,8 @@ Core layers:
 - document-level parallel extraction via `--extract-workers`, while each document still extracts windows sequentially and final outputs keep input document order
 - in non-`--quiet` CLI runs, the CLI now shows one live single-line multi-stage progress view: extraction reports document and window progress, while later stages report compile-group and register-skill progress
 - transient extraction failures such as rate limits or short-lived overload now retry with exponential backoff instead of dropping the document immediately; tune with `--extract-retries` and `--extract-retry-backoff-s`
+- AutoSkill4Doc now applies shared adaptive backpressure by default across outline classification, family resolution, extraction, compile, and versioning: transient 429/timeout/overload/SSL-style failures make later requests cool down automatically instead of immediately hammering the same provider again
+- optional proactive rolling-window throttling is available via `--llm-rate-limit-requests` and `--llm-rate-limit-window-s`, so multi-worker runs can queue under known provider quotas instead of hammering into 429s
 - if one document still fails after retries, AutoSkill4Doc records that failure at the document level and continues the rest of the batch instead of aborting the whole extraction run
 - extraction now uses a two-stage window flow: first plan how many distinct skills the window really contains, then expand each planned skill one-by-one so multi-skill windows do not force several full skills to share one response budget
 - by default, AutoSkill4Doc uses one compact outline-level LLM classification pass per document over rule-recalled heading candidates to assign section/subsection levels; use `section-outline-mode=rule` only when you explicitly want rules only
@@ -342,6 +344,11 @@ Parsing / hierarchy knobs:
   - `llm`: default; do one compact outline LLM classification pass over candidate headings for each document, while rules only recall candidates and provide fallback
   - `rule`: disable outline LLM classification completely and rely on rules only
   - compatibility aliases: `auto -> llm`, `off -> rule`
+- `--llm-rate-limit-requests` + `--llm-rate-limit-window-s`
+  - enforce one shared rolling-window request budget across outline classification, family resolution, extraction, compile, and versioning
+  - even without these flags, AutoSkill4Doc still applies adaptive cooldowns after transient provider failures
+  - use this when the provider exposes quotas such as `2000 requests / 300 seconds`
+  - example: `--llm-rate-limit-requests 2000 --llm-rate-limit-window-s 300`
 
 ## Is The Flow Reasonable
 

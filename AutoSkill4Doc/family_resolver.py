@@ -11,6 +11,7 @@ from autoskill.llm.factory import build_llm
 
 from .core.common import dedupe_strings, normalize_text
 from .core.llm_utils import clip_confidence, llm_complete_json, maybe_json_dict
+from .core.rate_limit import AUTOSKILL4DOC_LLM_SCOPE, maybe_wrap_llm_with_rate_limit
 from .models import DocumentRecord
 from .taxonomy import SkillTaxonomy
 
@@ -282,7 +283,9 @@ class DocumentFamilyResolver:
             "- Choose ONLY one family_id from family_candidates.\n"
             "- Do not invent new family names.\n"
             "- Prefer explicit modality terminology, headings, and method cues over vague topical similarity.\n"
+            "- Family is a routing container for a dominant framework, not a symptom/topic tag.\n"
             "- Do not choose a family only because the document is generally about the same domain.\n"
+            "- Do not choose a family only because the case topic or diagnosis matches a family keyword.\n"
             "- Use aliases/keywords as clues, but resolve conflicts by the dominant therapeutic method or framework described across the batch.\n"
             "- If the evidence is weak, still pick the closest configured family but lower confidence substantially.\n"
             "Return ONLY strict JSON:\n"
@@ -328,10 +331,19 @@ def build_document_family_resolver(
     taxonomy: SkillTaxonomy,
     llm: Optional[LLM] = None,
     llm_config: Optional[Dict[str, Any]] = None,
+    llm_rate_limit_requests: int = 0,
+    llm_rate_limit_window_s: float = 300.0,
 ) -> DocumentFamilyResolver:
     """Builds the default constrained family resolver."""
 
     effective_llm = llm
     if effective_llm is None and isinstance(llm_config, dict) and llm_config:
         effective_llm = build_llm(dict(llm_config or {}))
+    effective_llm = maybe_wrap_llm_with_rate_limit(
+        effective_llm,
+        max_requests=llm_rate_limit_requests,
+        window_s=llm_rate_limit_window_s,
+        llm_config=llm_config,
+        scope=AUTOSKILL4DOC_LLM_SCOPE,
+    )
     return DocumentFamilyResolver(taxonomy=taxonomy, llm=effective_llm)

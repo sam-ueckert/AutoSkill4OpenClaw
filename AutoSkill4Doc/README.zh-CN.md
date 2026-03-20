@@ -36,6 +36,8 @@ document
 - 支持 `--extract-workers` 的文档级并行抽取；同一篇文档内部仍按原顺序逐个 window 抽取，最终结果按输入文档顺序归并
 - 非 `--quiet` CLI 运行时，会显示单行实时的多阶段进度：抽取阶段展示文档和 window 进度，后续阶段展示 compile 分组和 register 技能进度
 - 抽取阶段遇到限流、短时过载或瞬时网络错误时会做指数退避重试，而不是直接丢掉文档；可用 `--extract-retries` 和 `--extract-retry-backoff-s` 调整
+- AutoSkill4Doc 现在默认带一层共享的自适应背压：outline 分类、family 判定、抽取、compile、versioning 任何阶段遇到 429/超时/过载/SSL 一类瞬时错误，后续请求都会自动冷却退让，而不是继续立刻打同一个 provider
+- 还支持通过 `--llm-rate-limit-requests` 和 `--llm-rate-limit-window-s` 做主动限流；多 worker 运行时会在共享配额下排队，而不是直接把 provider 打到 `429`
 - 如果某篇文档在重试后仍失败，AutoSkill4Doc 会按文档记录失败并继续处理整批其它文档，而不是整批直接中断
 - 抽取现在采用两阶段 window 流程：先判断当前 window 实际包含几个独立 skill，再逐个展开详细抽取，避免多个 skill 共用一次响应预算导致后面的 skill 变薄
 - 默认会对每篇文档的候选标题做一次紧凑的 outline 级 LLM 结构分类来判断 section / subsection 层级；规则负责召回候选与兜底。只有显式指定 `section-outline-mode=rule` 时才完全走规则
@@ -334,6 +336,11 @@ provider 配置不是文件，而是环境变量。常用项包括：
   - `llm`：默认；对每篇文档的候选标题做一次紧凑的 outline LLM 层级分类；规则只负责召回候选和兜底
   - `rule`：完全关闭这层 outline LLM 分类，只使用规则判断
   - 兼容别名：`auto -> llm`，`off -> rule`
+- `--llm-rate-limit-requests` + `--llm-rate-limit-window-s`
+  - 对 outline 分类、family 判定、抽取、compile、versioning 共用一套 rolling-window 请求配额
+  - 即使不显式设置这两个参数，遇到 provider 瞬时错误时也会自动触发共享冷却退让
+  - 适合 provider 给出类似 `5 分钟最多 2000 次` 的限制
+  - 示例：`--llm-rate-limit-requests 2000 --llm-rate-limit-window-s 300`
 
 ## 流程是否合理
 

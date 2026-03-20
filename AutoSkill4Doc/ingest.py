@@ -20,8 +20,17 @@ from autoskill.llm.base import LLM
 from autoskill.llm.factory import build_llm
 
 from .core.common import StageLogger, document_progress_label, emit_stage_log, normalize_text
-from .core.config import DEFAULT_EXTRACT_STRATEGY, DEFAULT_MAX_SECTION_CHARS, DEFAULT_SECTION_OUTLINE_MODE, normalize_extract_strategy, normalize_section_outline_mode
+from .core.config import (
+    DEFAULT_EXTRACT_STRATEGY,
+    DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
+    DEFAULT_MAX_SECTION_CHARS,
+    DEFAULT_SECTION_OUTLINE_MODE,
+    normalize_extract_strategy,
+    normalize_section_outline_mode,
+)
 from .core.llm_utils import llm_complete_json, maybe_json_dict
+from .core.rate_limit import AUTOSKILL4DOC_LLM_SCOPE, maybe_wrap_llm_with_rate_limit
 from .document.file_loader import data_to_text_unit, load_file_units
 from .document.windowing import build_windows_for_record
 from .models import DocumentRecord, DocumentSection, StrictWindow, TextSpan, TextUnit
@@ -967,11 +976,21 @@ class HeuristicDocumentIngestor:
         llm_config: Optional[Dict[str, Any]] = None,
         max_section_chars: int = DEFAULT_MAX_SECTION_CHARS,
         outline_fallback_mode: str = DEFAULT_SECTION_OUTLINE_MODE,
+        llm_rate_limit_requests: int = DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+        llm_rate_limit_window_s: float = DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
     ) -> None:
         """Builds one document ingestor with optional low-frequency outline LLM fallback."""
 
-        self._llm = llm
         self._llm_config = dict(llm_config or {})
+        self.llm_rate_limit_requests = max(0, int(llm_rate_limit_requests or 0))
+        self.llm_rate_limit_window_s = max(0.0, float(llm_rate_limit_window_s or 0.0))
+        self._llm = maybe_wrap_llm_with_rate_limit(
+            llm,
+            max_requests=self.llm_rate_limit_requests,
+            window_s=self.llm_rate_limit_window_s,
+            llm_config=self._llm_config,
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
         self.max_section_chars = max(1000, int(max_section_chars or _DEFAULT_MAX_SECTION_CHARS))
         self.outline_fallback_mode = normalize_section_outline_mode(outline_fallback_mode)
 
@@ -985,7 +1004,13 @@ class HeuristicDocumentIngestor:
         provider = str(self._llm_config.get("provider") or "").strip().lower()
         if not provider or provider == "mock":
             return None
-        self._llm = build_llm(dict(self._llm_config))
+        self._llm = maybe_wrap_llm_with_rate_limit(
+            build_llm(dict(self._llm_config)),
+            max_requests=self.llm_rate_limit_requests,
+            window_s=self.llm_rate_limit_window_s,
+            llm_config=self._llm_config,
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
         return self._llm
 
     def _parse_sections_with_fallback(self, *, raw_text: str, default_title: str, logger: StageLogger) -> List[DocumentSection]:

@@ -34,6 +34,8 @@ from .core.common import StageLogger, compact_metadata, document_progress_label
 from .core.config import (
     DEFAULT_DOC_SKILL_USER_ID,
     DEFAULT_EXTRACT_STRATEGY,
+    DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
     DEFAULT_MAX_CANDIDATES_PER_UNIT,
     DEFAULT_MAX_SECTION_CHARS,
     DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
@@ -343,6 +345,8 @@ def extract_from_doc(
     extract_retries: int = 3,
     extract_retry_backoff_s: float = 1.0,
     retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
+    llm_rate_limit_requests: int = DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    llm_rate_limit_window_s: float = DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
     max_section_chars: int = DEFAULT_MAX_SECTION_CHARS,
     section_outline_mode: str = DEFAULT_SECTION_OUTLINE_MODE,
     family_name: str = "",
@@ -402,6 +406,8 @@ def extract_from_doc(
             llm_config=dict(llm_cfg),
             max_section_chars=int(max_section_chars or 0) or DEFAULT_MAX_SECTION_CHARS,
             outline_fallback_mode=normalize_section_outline_mode(section_outline_mode),
+            llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+            llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
         ),
         document_skill_extractor=build_document_skill_extractor(
             "llm",
@@ -413,6 +419,8 @@ def extract_from_doc(
             extract_workers=max(1, int(extract_workers or 1)),
             extract_retries=max(0, int(extract_retries or 0)),
             extract_retry_backoff_s=max(0.0, float(extract_retry_backoff_s or 0.0)),
+            llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+            llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
             domain_type=taxonomy.domain_type,
             skill_taxonomy_path=str(skill_taxonomy_path or "").strip(),
             taxonomy=taxonomy,
@@ -421,6 +429,8 @@ def extract_from_doc(
         extract_retries=max(0, int(extract_retries or 0)),
         extract_retry_backoff_s=max(0.0, float(extract_retry_backoff_s or 0.0)),
         retrieval_score_threshold=max(0.0, float(retrieval_score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD)),
+        llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+        llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
     )
     result = pipeline.build(
         user_id=str(user_id or "").strip() or DEFAULT_DOC_SKILL_USER_ID,
@@ -666,6 +676,11 @@ def _build_pipeline_from_args(
             outline_fallback_mode=normalize_section_outline_mode(
                 str(getattr(args, "section_outline_mode", "") or DEFAULT_SECTION_OUTLINE_MODE)
             ),
+            llm_rate_limit_requests=max(0, int(getattr(args, "llm_rate_limit_requests", 0) or 0)),
+            llm_rate_limit_window_s=max(
+                0.0,
+                float(getattr(args, "llm_rate_limit_window_s", DEFAULT_LLM_RATE_LIMIT_WINDOW_S) or 0.0),
+            ),
         ),
         document_skill_extractor=build_document_skill_extractor(
             "llm",
@@ -677,6 +692,11 @@ def _build_pipeline_from_args(
             extract_workers=max(1, int(getattr(args, "extract_workers", 1) or 1)),
             extract_retries=max(0, int(getattr(args, "extract_retries", 3) or 0)),
             extract_retry_backoff_s=max(0.0, float(getattr(args, "extract_retry_backoff_s", 1.0) or 0.0)),
+            llm_rate_limit_requests=max(0, int(getattr(args, "llm_rate_limit_requests", 0) or 0)),
+            llm_rate_limit_window_s=max(
+                0.0,
+                float(getattr(args, "llm_rate_limit_window_s", DEFAULT_LLM_RATE_LIMIT_WINDOW_S) or 0.0),
+            ),
             domain_type=taxonomy.domain_type,
             skill_taxonomy_path=str(getattr(args, "skill_taxonomy", "") or "").strip(),
             taxonomy=taxonomy,
@@ -688,6 +708,11 @@ def _build_pipeline_from_args(
         retrieval_score_threshold=max(
             0.0,
             float(getattr(args, "retrieval_score_threshold", DEFAULT_RETRIEVAL_SCORE_THRESHOLD) or 0.0),
+        ),
+        llm_rate_limit_requests=max(0, int(getattr(args, "llm_rate_limit_requests", 0) or 0)),
+        llm_rate_limit_window_s=max(
+            0.0,
+            float(getattr(args, "llm_rate_limit_window_s", DEFAULT_LLM_RATE_LIMIT_WINDOW_S) or 0.0),
         ),
     )
 
@@ -906,6 +931,18 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=1.0,
         help="Base backoff seconds for extract retries; exponential backoff is applied per retry.",
+    )
+    parser.add_argument(
+        "--llm-rate-limit-requests",
+        type=int,
+        default=DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+        help="Maximum LLM requests allowed within one rolling rate-limit window. 0 disables proactive throttling.",
+    )
+    parser.add_argument(
+        "--llm-rate-limit-window-s",
+        type=float,
+        default=DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
+        help="Rolling window size in seconds used together with --llm-rate-limit-requests.",
     )
     parser.add_argument(
         "--retrieval-score-threshold",

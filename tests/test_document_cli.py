@@ -414,6 +414,22 @@ class DocumentCliTest(unittest.TestCase):
 
         self.assertAlmostEqual(args.retrieval_score_threshold, 0.45)
 
+    def test_document_cli_accepts_llm_rate_limit_controls(self) -> None:
+        args = build_parser().parse_args(
+            [
+                "build",
+                "--file",
+                "/tmp/paper.md",
+                "--llm-rate-limit-requests",
+                "2000",
+                "--llm-rate-limit-window-s",
+                "300",
+            ]
+        )
+
+        self.assertEqual(args.llm_rate_limit_requests, 2000)
+        self.assertAlmostEqual(args.llm_rate_limit_window_s, 300.0)
+
     def test_document_cli_supports_fail_fast_flag(self) -> None:
         args = build_parser().parse_args(["build", "--file", "/tmp/paper.md", "--fail-fast"])
 

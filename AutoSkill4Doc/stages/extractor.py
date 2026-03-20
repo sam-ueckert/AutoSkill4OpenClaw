@@ -35,6 +35,7 @@ from ..core.llm_utils import (
     maybe_json_dict,
     section_items_from_prompt,
 )
+from ..core.rate_limit import AUTOSKILL4DOC_LLM_SCOPE, RateLimitedLLM, maybe_wrap_llm_with_rate_limit
 from ..models import (
     DocumentRecord,
     SkillDraft,
@@ -51,6 +52,8 @@ _DEFAULT_SECTION_CHARS = 2400
 _DEFAULT_CHUNK_OVERLAP_CHARS = 200
 _DEFAULT_EXTRACT_RETRIES = 3
 _DEFAULT_EXTRACT_RETRY_BACKOFF_S = 1.0
+_DEFAULT_LLM_RATE_LIMIT_REQUESTS = 0
+_DEFAULT_LLM_RATE_LIMIT_WINDOW_S = 300.0
 _DEFAULT_SECTION_PRIORITY_TERMS = (
     "goal",
     "session goal",
@@ -387,6 +390,9 @@ def _applicable_signals_from_item(item: Dict[str, object], prompt: str) -> List[
     explicit = compact_text_list(coerce_str_list(item.get("applicable_signals")), limit=12)
     if explicit:
         return explicit
+    planned = compact_text_list(coerce_str_list(item.get("use_when")), limit=12)
+    if planned:
+        return planned
     return section_items_from_prompt(
         prompt,
         [
@@ -407,6 +413,9 @@ def _contraindications_from_item(item: Dict[str, object], prompt: str) -> List[s
     explicit = compact_text_list(coerce_str_list(item.get("contraindications")), limit=12)
     if explicit:
         return explicit
+    planned = compact_text_list(coerce_str_list(item.get("do_not_use_when")), limit=12)
+    if planned:
+        return planned
     return section_items_from_prompt(
         prompt,
         [
@@ -504,6 +513,9 @@ def _output_contract_from_item(item: Dict[str, object], prompt: str) -> List[str
     explicit = compact_text_list(coerce_str_list(item.get("output_contract")), limit=12)
     if explicit:
         return explicit
+    success_artifact = str(item.get("success_artifact") or "").strip()
+    if success_artifact:
+        return [success_artifact]
     return section_items_from_prompt(
         prompt,
         [
@@ -544,6 +556,15 @@ def _examples_from_item(item: Dict[str, object]) -> List[SkillExample]:
             )
         )
     return out
+
+
+def _triggers_from_item(item: Dict[str, object]) -> List[str]:
+    """Builds routing triggers with planner-level fallback."""
+
+    explicit = compact_text_list(coerce_str_list(item.get("triggers")), limit=5)
+    if explicit:
+        return explicit
+    return compact_text_list(coerce_str_list(item.get("use_when")), limit=5)
 
 
 def _draft_identity_seed(*, doc_id: str, section: str, name: str, prompt: str, unit_key: str = "") -> str:
@@ -661,12 +682,22 @@ class LLMDocumentSkillExtractor:
         extract_workers: int = 1,
         extract_retries: int = _DEFAULT_EXTRACT_RETRIES,
         extract_retry_backoff_s: float = _DEFAULT_EXTRACT_RETRY_BACKOFF_S,
+        llm_rate_limit_requests: int = _DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+        llm_rate_limit_window_s: float = _DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
         domain_type: str = "",
         skill_taxonomy_path: str = "",
         taxonomy: Optional[SkillTaxonomy] = None,
     ) -> None:
         self._llm_config = dict(llm_config or {})
-        self._llm = llm or build_llm(dict(self._llm_config or {"provider": "mock"}))
+        self.llm_rate_limit_requests = max(0, int(llm_rate_limit_requests or 0))
+        self.llm_rate_limit_window_s = max(0.0, float(llm_rate_limit_window_s or 0.0))
+        self._llm = maybe_wrap_llm_with_rate_limit(
+            llm or build_llm(dict(self._llm_config or {"provider": "mock"})),
+            max_requests=self.llm_rate_limit_requests,
+            window_s=self.llm_rate_limit_window_s,
+            llm_config=self._llm_config,
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
         self.max_section_chars = max(200, int(max_section_chars or _DEFAULT_SECTION_CHARS))
         self.overlap_chars = max(0, int(overlap_chars or 0))
         self.max_candidates_per_unit = max(1, int(max_candidates_per_unit or DEFAULT_MAX_CANDIDATES_PER_UNIT))
@@ -683,14 +714,27 @@ class LLMDocumentSkillExtractor:
         """Builds one worker-local LLM instance for document-level parallel extraction."""
 
         if self._llm_config:
-            return build_llm(dict(self._llm_config))
+            return maybe_wrap_llm_with_rate_limit(
+                build_llm(dict(self._llm_config)),
+                max_requests=self.llm_rate_limit_requests,
+                window_s=self.llm_rate_limit_window_s,
+                llm_config=self._llm_config,
+                scope=AUTOSKILL4DOC_LLM_SCOPE,
+            )
+        source_llm = self._llm.base_llm if isinstance(self._llm, RateLimitedLLM) else self._llm
         try:
-            cloned = copy.deepcopy(self._llm)
+            cloned = copy.deepcopy(source_llm)
         except Exception as exc:
             raise ValueError(
                 "extract_workers>1 requires llm_config or a deepcopy-compatible llm instance"
             ) from exc
-        return cloned
+        return maybe_wrap_llm_with_rate_limit(
+            cloned,
+            max_requests=self.llm_rate_limit_requests,
+            window_s=self.llm_rate_limit_window_s,
+            llm_config=self._llm_config,
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
 
     def _spawn_worker_extractor(self) -> "LLMDocumentSkillExtractor":
         """Creates one worker-local extractor so concurrent documents do not share one LLM client."""
@@ -704,6 +748,8 @@ class LLMDocumentSkillExtractor:
             extract_workers=1,
             extract_retries=self.extract_retries,
             extract_retry_backoff_s=self.extract_retry_backoff_s,
+            llm_rate_limit_requests=self.llm_rate_limit_requests,
+            llm_rate_limit_window_s=self.llm_rate_limit_window_s,
             taxonomy=self.taxonomy,
         )
 
@@ -983,7 +1029,7 @@ class LLMDocumentSkillExtractor:
             )
         )
         tags = compact_text_list(coerce_str_list(item.get("tags")), limit=6)
-        triggers = compact_text_list(coerce_str_list(item.get("triggers")), limit=5)
+        triggers = _triggers_from_item(item)
         raw_asset_type = str(item.get("asset_type") or "").strip()
         asset_type = self.taxonomy.strict_normalize_asset_type(raw_asset_type)
         if raw_asset_type and not asset_type:
@@ -1476,6 +1522,8 @@ def build_document_skill_extractor(
     extract_workers: int = 1,
     extract_retries: int = _DEFAULT_EXTRACT_RETRIES,
     extract_retry_backoff_s: float = _DEFAULT_EXTRACT_RETRY_BACKOFF_S,
+    llm_rate_limit_requests: int = _DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    llm_rate_limit_window_s: float = _DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
     domain_type: str = "",
     skill_taxonomy_path: str = "",
     taxonomy: Optional[SkillTaxonomy] = None,
@@ -1494,6 +1542,8 @@ def build_document_skill_extractor(
             extract_workers=extract_workers,
             extract_retries=extract_retries,
             extract_retry_backoff_s=extract_retry_backoff_s,
+            llm_rate_limit_requests=llm_rate_limit_requests,
+            llm_rate_limit_window_s=llm_rate_limit_window_s,
             domain_type=domain_type,
             skill_taxonomy_path=skill_taxonomy_path,
             taxonomy=taxonomy,

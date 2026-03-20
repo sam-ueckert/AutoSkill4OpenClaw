@@ -31,6 +31,7 @@ from ..core.llm_utils import (
     maybe_json_dict,
     section_items_from_prompt,
 )
+from ..core.rate_limit import AUTOSKILL4DOC_LLM_SCOPE, maybe_wrap_llm_with_rate_limit
 from ..models import SkillDraft, SkillSpec, SupportRecord, VersionState
 from ..taxonomy import load_skill_taxonomy
 
@@ -225,8 +226,19 @@ class LLMSkillCompiler:
         *,
         llm: Optional[LLM] = None,
         llm_config: Optional[Dict[str, object]] = None,
+        llm_rate_limit_requests: int = 0,
+        llm_rate_limit_window_s: float = 300.0,
     ) -> None:
-        self._llm = llm or build_llm(dict(llm_config or {"provider": "mock"}))
+        self._llm_config = dict(llm_config or {})
+        self.llm_rate_limit_requests = max(0, int(llm_rate_limit_requests or 0))
+        self.llm_rate_limit_window_s = max(0.0, float(llm_rate_limit_window_s or 0.0))
+        self._llm = maybe_wrap_llm_with_rate_limit(
+            llm or build_llm(dict(self._llm_config or {"provider": "mock"})),
+            max_requests=self.llm_rate_limit_requests,
+            window_s=self.llm_rate_limit_window_s,
+            llm_config=self._llm_config,
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
 
     def _compile_group(
         self,
@@ -296,17 +308,18 @@ class LLMSkillCompiler:
             "Output ONLY strict JSON parseable by json.loads.\n"
             "Decision policy:\n"
             "- Be conservative and prefer fewer, better canonical skills over many near-duplicates.\n"
+            "- Treat each canonical skill as a reusable contract: when to invoke it, when not to invoke it, what it executes, and what output or handoff it guarantees.\n"
             "- Keep distinct parent/child assets separate even when they come from the same section.\n"
             "Merge drafts only when they express the same reusable capability after de-duplication and abstraction.\n"
             "Never merge drafts across different asset_type, granularity, or asset_node_id.\n"
-            "Keep distinct skills separate when objective, method, stage, or deliverable differs materially.\n"
+            "Keep distinct skills separate when invocation boundary, objective, method, stage, guardrails, or deliverable differs materially.\n"
             "Preserve multi-granularity outputs: macro_protocol, session_skill, micro_skill, safety_rule, knowledge_reference.\n"
             "Each output skill should stay single-goal, with one primary objective, one primary stage, and one primary method family.\n"
             "Every output skill must reference support_ids grounded in the provided drafts/supports.\n"
             "support_ids must be chosen only from the provided supports.\n"
             "source_draft_ids must be chosen only from the provided drafts.\n"
             "When asset_node_id is present, it must stay inside the configured taxonomy and match the output asset layer.\n"
-            "Do not invent workflow steps, constraints, or examples that are not supported by the provided drafts/supports.\n"
+            "Do not invent routing cues, workflow steps, constraints, output guarantees, or examples that are not supported by the provided drafts/supports.\n"
             "Return JSON as {\"skills\": [...]}.\n"
             "Fields per skill:\n"
             "- name, description, prompt\n"
@@ -746,12 +759,19 @@ def build_skill_compiler(
     *,
     llm: Optional[LLM] = None,
     llm_config: Optional[Dict[str, object]] = None,
+    llm_rate_limit_requests: int = 0,
+    llm_rate_limit_window_s: float = 300.0,
 ) -> SkillCompiler:
     """Builds a concrete draft-to-skill compiler implementation."""
 
     name = str(kind or "").strip().lower() or "llm"
     if name in {"llm", "heuristic", "stub", "rule-based", "rule_based"}:
-        return LLMSkillCompiler(llm=llm, llm_config=llm_config)
+        return LLMSkillCompiler(
+            llm=llm,
+            llm_config=llm_config,
+            llm_rate_limit_requests=llm_rate_limit_requests,
+            llm_rate_limit_window_s=llm_rate_limit_window_s,
+        )
     raise ValueError(f"unsupported skill compiler: {kind}")
 
 

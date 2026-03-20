@@ -8,6 +8,8 @@ import threading
 import unittest
 
 from autoskill import AutoSkill, AutoSkillConfig
+from autoskill.llm.base import LLM
+from AutoSkill4Doc.core.rate_limit import AUTOSKILL4DOC_LLM_SCOPE, maybe_wrap_llm_with_rate_limit
 from AutoSkill4Doc.stages.compiler import _identity_key_for_skill, build_skill_compiler, compile_skills
 from AutoSkill4Doc.stages.extractor import build_document_skill_extractor, extract_skills
 from AutoSkill4Doc.extract import extract_from_doc
@@ -238,6 +240,31 @@ class FailOnceCompiler:
         return self.delegate.compile(**kwargs)
 
 
+class TimestampLLM(LLM):
+    def __init__(self, timestamps: list[float]) -> None:
+        self.timestamps = timestamps
+
+    def complete(self, *, system, user, temperature: float = 0.0) -> str:
+        _ = system, user, temperature
+        self.timestamps.append(time.monotonic())
+        return "{}"
+
+
+class FailThenSucceedLLM(LLM):
+    def __init__(self, failures: int, message: str, timestamps: list[float]) -> None:
+        self.failures = int(failures or 0)
+        self.message = str(message or "")
+        self.timestamps = timestamps
+
+    def complete(self, *, system, user, temperature: float = 0.0) -> str:
+        _ = system, user, temperature
+        self.timestamps.append(time.monotonic())
+        if self.failures > 0:
+            self.failures -= 1
+            raise RuntimeError(self.message)
+        return "{}"
+
+
 class DocumentPipelineTest(unittest.TestCase):
     def _build_sdk(self, *, store_path: str) -> AutoSkill:
         return AutoSkill(
@@ -358,6 +385,76 @@ class DocumentPipelineTest(unittest.TestCase):
                 sorted(list(metadata.get("family_candidates_detected") or [])),
                 ["心理动力学", "认知行为疗法"],
             )
+
+    def test_build_default_pipeline_propagates_llm_rate_limit_settings(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sdk = self._build_sdk(store_path=tmpdir)
+            pipeline = build_default_document_pipeline(
+                sdk=sdk,
+                llm_rate_limit_requests=2000,
+                llm_rate_limit_window_s=300.0,
+            )
+
+            self.assertEqual(pipeline.llm_rate_limit_requests, 2000)
+            self.assertAlmostEqual(pipeline.llm_rate_limit_window_s, 300.0)
+            self.assertEqual(getattr(pipeline.document_ingestor, "llm_rate_limit_requests", 0), 2000)
+            self.assertEqual(getattr(pipeline.document_skill_extractor, "llm_rate_limit_requests", 0), 2000)
+            self.assertEqual(getattr(pipeline.skill_compiler, "llm_rate_limit_requests", 0), 2000)
+
+    def test_shared_llm_rate_limiter_throttles_across_wrappers(self) -> None:
+        timestamps: list[float] = []
+        wrapped_a = maybe_wrap_llm_with_rate_limit(
+            TimestampLLM(timestamps),
+            max_requests=1,
+            window_s=0.2,
+            llm_config={"provider": "test", "model": "unit"},
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
+        wrapped_b = maybe_wrap_llm_with_rate_limit(
+            TimestampLLM(timestamps),
+            max_requests=1,
+            window_s=0.2,
+            llm_config={"provider": "test", "model": "unit"},
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
+        self.assertIsNotNone(wrapped_a)
+        self.assertIsNotNone(wrapped_b)
+
+        threads = [
+            threading.Thread(target=wrapped_a.complete, kwargs={"system": None, "user": "a"}),
+            threading.Thread(target=wrapped_b.complete, kwargs={"system": None, "user": "b"}),
+        ]
+        started = time.monotonic()
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        self.assertEqual(len(timestamps), 2)
+        self.assertGreaterEqual(max(timestamps) - min(timestamps), 0.16)
+        self.assertGreaterEqual(time.monotonic() - started, 0.16)
+
+    def test_shared_llm_rate_limiter_auto_cools_down_after_retryable_error(self) -> None:
+        timestamps: list[float] = []
+        wrapped_error = maybe_wrap_llm_with_rate_limit(
+            FailThenSucceedLLM(1, "429 too many requests retry after 0.2s", timestamps),
+            llm_config={"provider": "test", "model": "unit"},
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
+        wrapped_success = maybe_wrap_llm_with_rate_limit(
+            TimestampLLM(timestamps),
+            llm_config={"provider": "test", "model": "unit"},
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
+
+        with self.assertRaises(RuntimeError):
+            wrapped_error.complete(system=None, user="first")
+
+        started = time.monotonic()
+        wrapped_success.complete(system=None, user="second")
+        elapsed = time.monotonic() - started
+
+        self.assertGreaterEqual(elapsed, 0.16)
 
     def test_intermediate_extract_progress_uses_safe_doc_filenames(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1085,6 +1182,92 @@ Do not push interpretation before the client is ready.
             ["放松训练教学流程", "焦虑等级表建构微技能"],
         )
         self.assertEqual(len(extracted.support_records), 2)
+
+    def test_two_stage_extraction_uses_planner_contract_hints_as_fallback(self) -> None:
+        def _contract_response(*, system: str | None, user: str, temperature: float = 0.0, mode: str = "default") -> str:
+            _ = system, temperature
+            if mode != "document_extract":
+                return json.dumps({"skills": []}, ensure_ascii=False)
+            payload = json.loads(user)
+            candidate = payload.get("candidate")
+            if isinstance(candidate, dict):
+                return json.dumps(
+                    {
+                        "skill": {
+                            "name": "结构化抑郁评估流程",
+                            "description": "完成一次结构化抑郁评估。",
+                            "prompt": "# Goal\n完成抑郁评估。\n\n# Core Workflow\n1. 明确主诉。\n2. 评估症状严重度。\n3. 汇总结论。",
+                            "asset_type": "session_skill",
+                            "asset_node_id": "session_framework",
+                            "granularity": "session",
+                            "objective": "完成一次结构化抑郁评估。",
+                            "domain": "psychology",
+                            "task_family": "assessment",
+                            "method_family": "structured_interview",
+                            "stage": "assessment",
+                            "workflow_steps": ["明确主诉。", "评估症状严重度。", "汇总结论。"],
+                            "constraints": ["保持访谈结构化。"],
+                            "relation_type": "support",
+                            "risk_class": "low",
+                            "confidence": 0.9,
+                        }
+                    },
+                    ensure_ascii=False,
+                )
+            return json.dumps(
+                {
+                    "skills": [
+                        {
+                            "slot": 1,
+                            "name": "结构化抑郁评估流程",
+                            "description": "对抑郁相关主诉进行一次结构化评估。",
+                            "asset_type": "session_skill",
+                            "asset_node_id": "session_framework",
+                            "granularity": "session",
+                            "objective": "完成一次结构化抑郁评估。",
+                            "task_family": "assessment",
+                            "method_family": "structured_interview",
+                            "stage": "assessment",
+                            "use_when": ["来访者呈现持续情绪低落或兴趣减退。"],
+                            "do_not_use_when": ["存在急性自杀危机且需先进入危机分流。"],
+                            "success_artifact": "形成结构化评估结论与下一步建议。",
+                            "why_distinct": "这是独立的评估工作流。",
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            )
+
+        record = DocumentRecord(
+            doc_id="doc-contract",
+            source_type="markdown_document",
+            title="Doc Contract",
+            domain="psychology",
+            raw_text="# Assessment\n进行一次结构化抑郁评估。\n",
+            sections=[
+                DocumentSection(
+                    heading="Assessment",
+                    text="对来访者进行结构化抑郁评估，并给出下一步建议。",
+                    span=TextSpan(start=0, end=24),
+                )
+            ],
+            content_hash="doc-contract-hash",
+        )
+
+        extracted = extract_skills(
+            documents=[record],
+            extractor=build_document_skill_extractor(
+                "llm",
+                llm_config={"provider": "mock", "response": _contract_response},
+            ),
+        )
+
+        self.assertEqual(len(extracted.skill_drafts), 1)
+        draft = extracted.skill_drafts[0]
+        self.assertEqual(draft.triggers, ["来访者呈现持续情绪低落或兴趣减退。"])
+        self.assertEqual(draft.applicable_signals, ["来访者呈现持续情绪低落或兴趣减退。"])
+        self.assertEqual(draft.contraindications, ["存在急性自杀危机且需先进入危机分流。"])
+        self.assertEqual(draft.output_contract, ["形成结构化评估结论与下一步建议。"])
 
     def test_build_records_failed_document_without_aborting_batch(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

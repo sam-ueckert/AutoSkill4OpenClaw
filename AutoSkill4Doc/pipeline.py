@@ -23,6 +23,8 @@ from .core.common import StageLogger, compact_metadata, emit_stage_progress
 from .core.config import (
     DEFAULT_DOC_SKILL_USER_ID,
     DEFAULT_EXTRACT_STRATEGY,
+    DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
     DEFAULT_MAX_CANDIDATES_PER_UNIT,
     DEFAULT_MAX_SECTION_CHARS,
     DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
@@ -119,18 +121,41 @@ class DocumentBuildPipeline:
         family_resolver: Optional[DocumentFamilyResolver] = None,
         logger: StageLogger = None,
         retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
+        llm_rate_limit_requests: int = DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+        llm_rate_limit_window_s: float = DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
     ) -> None:
         """Builds a pipeline with replaceable stage implementations."""
 
         self.registry = registry
         self.sdk = sdk
-        self.document_ingestor = document_ingestor or HeuristicDocumentIngestor()
-        self.document_skill_extractor = document_skill_extractor or build_document_skill_extractor("llm")
-        self.skill_compiler = skill_compiler or build_skill_compiler("llm")
-        self.taxonomy = taxonomy or load_skill_taxonomy()
-        self.family_resolver = family_resolver or build_document_family_resolver(taxonomy=self.taxonomy)
-        self.logger = logger
         self.retrieval_score_threshold = max(0.0, float(retrieval_score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD))
+        self.llm_rate_limit_requests = max(0, int(llm_rate_limit_requests or 0))
+        self.llm_rate_limit_window_s = max(0.0, float(llm_rate_limit_window_s or 0.0))
+        self.logger = logger
+        self.taxonomy = taxonomy or load_skill_taxonomy()
+        self.document_ingestor = document_ingestor or HeuristicDocumentIngestor(
+            llm_config=dict(getattr(getattr(self.sdk, "config", None), "llm", {}) or {}),
+            llm_rate_limit_requests=self.llm_rate_limit_requests,
+            llm_rate_limit_window_s=self.llm_rate_limit_window_s,
+        )
+        self.document_skill_extractor = document_skill_extractor or build_document_skill_extractor(
+            "llm",
+            llm_config=dict(getattr(getattr(self.sdk, "config", None), "llm", {}) or {}),
+            llm_rate_limit_requests=self.llm_rate_limit_requests,
+            llm_rate_limit_window_s=self.llm_rate_limit_window_s,
+        )
+        self.skill_compiler = skill_compiler or build_skill_compiler(
+            "llm",
+            llm_config=dict(getattr(getattr(self.sdk, "config", None), "llm", {}) or {}),
+            llm_rate_limit_requests=self.llm_rate_limit_requests,
+            llm_rate_limit_window_s=self.llm_rate_limit_window_s,
+        )
+        self.family_resolver = family_resolver or build_document_family_resolver(
+            taxonomy=self.taxonomy,
+            llm_config=dict(getattr(getattr(self.sdk, "config", None), "llm", {}) or {}),
+            llm_rate_limit_requests=self.llm_rate_limit_requests,
+            llm_rate_limit_window_s=self.llm_rate_limit_window_s,
+        )
 
     def _ensure_runtime_llm(self, *, context: str) -> None:
         """Prevents user-facing extraction paths from silently using mock."""
@@ -180,6 +205,8 @@ class DocumentBuildPipeline:
         return build_document_family_resolver(
             taxonomy=taxonomy,
             llm=getattr(self.family_resolver, "llm", None),
+            llm_rate_limit_requests=self.llm_rate_limit_requests,
+            llm_rate_limit_window_s=self.llm_rate_limit_window_s,
         )
 
     def _extractor_for_taxonomy(self, taxonomy: SkillTaxonomy) -> DocumentSkillExtractor:
@@ -203,6 +230,10 @@ class DocumentBuildPipeline:
                 extract_workers=int(getattr(current, "extract_workers", 1) or 1),
                 extract_retries=int(getattr(current, "extract_retries", 3) or 0),
                 extract_retry_backoff_s=float(getattr(current, "extract_retry_backoff_s", 1.0) or 0.0),
+                llm_rate_limit_requests=int(getattr(current, "llm_rate_limit_requests", self.llm_rate_limit_requests) or 0),
+                llm_rate_limit_window_s=float(
+                    getattr(current, "llm_rate_limit_window_s", self.llm_rate_limit_window_s) or 0.0
+                ),
                 taxonomy=taxonomy,
             )
         return current
@@ -355,6 +386,10 @@ class DocumentBuildPipeline:
                 extract_workers=max(1, int(extract_workers or 1)),
                 extract_retries=int(getattr(extractor, "extract_retries", 3) or 0),
                 extract_retry_backoff_s=float(getattr(extractor, "extract_retry_backoff_s", 1.0) or 0.0),
+                llm_rate_limit_requests=int(getattr(extractor, "llm_rate_limit_requests", self.llm_rate_limit_requests) or 0),
+                llm_rate_limit_window_s=float(
+                    getattr(extractor, "llm_rate_limit_window_s", self.llm_rate_limit_window_s) or 0.0
+                ),
                 taxonomy=getattr(extractor, "taxonomy", None),
             )
         return extract_skills(
@@ -415,6 +450,8 @@ class DocumentBuildPipeline:
             logger=self.logger,
             progress_callback=progress_callback,
             retrieval_score_threshold=self.retrieval_score_threshold,
+            llm_rate_limit_requests=self.llm_rate_limit_requests,
+            llm_rate_limit_window_s=self.llm_rate_limit_window_s,
         )
 
     def build(
@@ -1036,6 +1073,8 @@ def build_default_document_pipeline(
     extract_retries: int = 3,
     extract_retry_backoff_s: float = 1.0,
     retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
+    llm_rate_limit_requests: int = DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    llm_rate_limit_window_s: float = DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
 ) -> DocumentBuildPipeline:
     """Builds the default staged document pipeline."""
 
@@ -1057,6 +1096,8 @@ def build_default_document_pipeline(
             llm_config=dict(getattr(getattr(sdk, "config", None), "llm", {}) or {}),
             max_section_chars=DEFAULT_MAX_SECTION_CHARS,
             outline_fallback_mode=DEFAULT_SECTION_OUTLINE_MODE,
+            llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+            llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
         ),
         document_skill_extractor=document_skill_extractor
         or build_document_skill_extractor(
@@ -1065,17 +1106,25 @@ def build_default_document_pipeline(
             extract_workers=max(1, int(extract_workers or 1)),
             extract_retries=max(0, int(extract_retries or 0)),
             extract_retry_backoff_s=max(0.0, float(extract_retry_backoff_s or 0.0)),
+            llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+            llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
         ),
         skill_compiler=skill_compiler
         or build_skill_compiler(
             "llm",
             llm_config=dict(getattr(getattr(sdk, "config", None), "llm", {}) or {}),
+            llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+            llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
         ),
         taxonomy=effective_taxonomy,
         family_resolver=family_resolver
         or build_document_family_resolver(
             taxonomy=effective_taxonomy,
             llm_config=dict(getattr(getattr(sdk, "config", None), "llm", {}) or {}),
+            llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+            llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
         ),
         retrieval_score_threshold=max(0.0, float(retrieval_score_threshold or DEFAULT_RETRIEVAL_SCORE_THRESHOLD)),
+        llm_rate_limit_requests=max(0, int(llm_rate_limit_requests or 0)),
+        llm_rate_limit_window_s=max(0.0, float(llm_rate_limit_window_s or 0.0)),
     )

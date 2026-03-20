@@ -431,6 +431,50 @@ class DocumentVersioningTest(unittest.TestCase):
         self.assertEqual(decision.action, "create")
         self.assertEqual(len(list((captured.get("payload") or {}).get("peer_candidates") or [])), 1)
 
+    def test_classify_change_payload_includes_contract_fields(self) -> None:
+        manager = VersionManager(registry=DocumentRegistry(root_dir="/tmp/non-persistent"), llm=self._llm())
+        support = self._support(support_id="sup-contract", doc_id="doc-contract", excerpt="Build rapport first.")
+        skill = self._skill(
+            skill_id="cand-contract",
+            name="structured intake",
+            workflow_steps=["Build rapport first."],
+            support_ids=[support.support_id],
+        )
+        skill.applicable_signals = ["来访者首次进入评估阶段。"]
+        skill.contraindications = ["急性危机需先分流。"]
+        skill.output_contract = ["形成结构化 intake 总结。"]
+        existing = self._skill(
+            skill_id="existing-contract",
+            name="structured intake existing",
+            workflow_steps=["Build rapport first."],
+            support_ids=[support.support_id],
+        )
+        existing.applicable_signals = ["首次评估。"]
+        existing.contraindications = ["危机需先转介。"]
+        existing.output_contract = ["形成 intake 结论。"]
+
+        captured: dict[str, object] = {}
+
+        class CaptureLLM:
+            def complete(self, *, system=None, user="", temperature=0.0):
+                _ = system, temperature
+                captured["payload"] = json.loads(user)
+                return json.dumps({"action": "create", "reason": "create"}, ensure_ascii=False)
+
+        manager.llm = CaptureLLM()
+        decision = manager.classify_change(
+            skill,
+            peer_skills=[],
+            existing_skills=[existing],
+            support_by_id={support.support_id: support},
+        )
+
+        self.assertEqual(decision.action, "create")
+        payload = dict(captured.get("payload") or {})
+        self.assertEqual(payload["candidate_skill"]["applicable_signals"], ["来访者首次进入评估阶段。"])
+        self.assertEqual(payload["candidate_skill"]["contraindications"], ["急性危机需先分流。"])
+        self.assertEqual(payload["existing_skills"][0]["output_contract"], ["形成 intake 结论。"])
+
     def test_classify_change_invalid_merge_target_falls_back_to_create(self) -> None:
         manager = VersionManager(registry=DocumentRegistry(root_dir="/tmp/non-persistent"), llm=self._llm())
         support = self._support(support_id="sup-merge", doc_id="doc-merge", excerpt="Build rapport first.")

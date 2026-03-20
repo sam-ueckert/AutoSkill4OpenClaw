@@ -24,7 +24,12 @@ from ..core.common import (
     normalize_text,
     summarize_names,
 )
-from ..core.config import DEFAULT_DOC_SKILL_USER_ID, DEFAULT_RETRIEVAL_SCORE_THRESHOLD
+from ..core.config import (
+    DEFAULT_DOC_SKILL_USER_ID,
+    DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
+    DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
+)
 from ..core.llm_utils import (
     clip_confidence,
     coerce_str_list,
@@ -32,6 +37,7 @@ from ..core.llm_utils import (
     llm_complete_json,
     maybe_json_dict,
 )
+from ..core.rate_limit import AUTOSKILL4DOC_LLM_SCOPE, maybe_wrap_llm_with_rate_limit
 from ..models import (
     DocumentRecord,
     SkillLifecycle,
@@ -651,6 +657,8 @@ class VersionManager:
             "task_family": str(skill.task_family or "").strip(),
             "method_family": str(skill.method_family or "").strip(),
             "stage": str(skill.stage or "").strip(),
+            "applicable_signals": list(skill.applicable_signals or [])[:3],
+            "contraindications": list(skill.contraindications or [])[:3],
             "triggers": list(skill.triggers or [])[:3],
             "workflow_steps": list(skill.workflow_steps or [])[:6],
             "constraints": list(skill.constraints or [])[:4],
@@ -761,6 +769,7 @@ class VersionManager:
                 "- Use discard only when the candidate is too weak, redundant, or not a reusable executable skill.\n"
                 "- Use create when it is a reusable skill worth registering.\n"
                 "- Prefer discard over create when the candidate is just topical summary, case narrative, or low-signal duplicate wording.\n"
+                "- A reusable skill should expose a callable contract: when to use it, when not to use it, and what output or handoff it should produce.\n"
                 "- resolved_skill, when provided, should only clean up the same candidate rather than changing its identity.\n"
                 "Return schema:\n"
                 "{\n"
@@ -819,13 +828,17 @@ class VersionManager:
             "Rules:\n"
             "- Decide from semantic capability identity, not lexical similarity.\n"
             "- candidate_skill and existing_skills are compact summaries; do not assume omitted fields are meaningful differences.\n"
+            "- Skill identity depends on its callable contract: invocation cues, guardrails, core workflow, and output contract.\n"
             "- Do not merge, strengthen, revise, or mark unchanged across different asset_type, granularity, or asset_node_id.\n"
             "- Treat macro_protocol, session_skill, micro_skill, safety_rule, and knowledge_reference as different asset layers unless there is an explicit split relationship.\n"
             "- peer_candidates, when present, are weak context only for split detection and NEVER valid merge targets.\n"
             "- Use support conflict evidence to avoid preserving outdated or unsafe guidance.\n"
             "- target_skill_ids must be chosen only from existing_skills.skill_id values shown in DATA.\n"
             "- If no existing skill is a valid target, choose create or discard instead of inventing a target.\n"
-            "- Do not choose merge or revise just because names overlap; capability identity depends on objective + workflow + constraints.\n"
+            "- Do not choose merge or revise just because names overlap; capability identity depends on invocation cues + objective + workflow + guardrails + output contract.\n"
+            "- Use strengthen when the same callable interface is preserved and the candidate mainly adds evidence, detail, or robustness.\n"
+            "- Use revise when the same capability remains but the caller-facing contract, workflow, or guardrails materially change.\n"
+            "- Prefer create when the candidate would require a different caller decision boundary or a different downstream handoff.\n"
             "- If action is strengthen/revise/unchanged/split, target_skill_ids should contain exactly one existing skill id.\n"
             "- If action is merge, target_skill_ids may contain one or more existing skill ids.\n"
             "- Provide resolved_skill when action is strengthen/revise/merge/unchanged and when rewriting the candidate makes the result clearer.\n"
@@ -925,9 +938,12 @@ class VersionManager:
                 "asset_node_id": child.asset_node_id,
                 "asset_level": child.asset_level,
                 "objective": child.objective,
+                "applicable_signals": list(child.applicable_signals or [])[:3],
+                "contraindications": list(child.contraindications or [])[:3],
                 "workflow_steps": list(child.workflow_steps or []),
                 "constraints": list(child.constraints or []),
                 "triggers": list(child.triggers or []),
+                "output_contract": list(child.output_contract or [])[:3],
             },
             "allowed_parent_nodes": list(allowed_parent_nodes or []),
             "parent_candidates": [
@@ -937,7 +953,9 @@ class VersionManager:
                     "asset_node_id": hit.skill.asset_node_id,
                     "asset_level": hit.skill.asset_level,
                     "objective": hit.skill.objective,
+                    "applicable_signals": list(hit.skill.applicable_signals or [])[:3],
                     "workflow_steps": list(hit.skill.workflow_steps or [])[:6],
+                    "output_contract": list(hit.skill.output_contract or [])[:3],
                     "score": float(getattr(hit, "score", 0.0) or 0.0),
                 }
                 for hit in hits[:5]
@@ -950,6 +968,7 @@ class VersionManager:
             "- Choose ONLY one parent_skill_id from parent_candidates when a clear broader parent exists.\n"
             "- Parent must be a broader reusable skill that should call or contain the child skill.\n"
             "- allowed_parent_nodes is a hard constraint; never attach outside that set.\n"
+            "- Prefer a parent whose workflow has a natural handoff point for the child and whose output or stage makes the child callable as a sub-skill.\n"
             "- Do not attach merely because domain, family, or wording is similar.\n"
             "- Prefer defer when multiple parents are similarly plausible or when the best score is still weak.\n"
             "- If no parent is clearly suitable, return decision=defer.\n"
@@ -1415,7 +1434,7 @@ class VersionManager:
             "Task: decide whether new incoming document skills/support should keep, watchlist, or deprecate an existing skill.\n"
             "Output ONLY strict JSON parseable by json.loads.\n"
             "Use watchlist when conflict signals are meaningful but not strong enough for deprecation.\n"
-            "Use deprecate when newer evidence materially contradicts or replaces the older skill's guidance.\n"
+            "Use deprecate when newer evidence materially contradicts or replaces the older skill's invocation boundary, guardrails, or output guidance.\n"
             "Prefer keep when the difference is only wording, detail level, or complementary refinement.\n"
             "Return schema: {\"action\": \"keep\"|\"watchlist\"|\"deprecate\", \"reason\": \"short reason\"}\n"
         )
@@ -1853,6 +1872,8 @@ def register_versions(
     logger: StageLogger = None,
     progress_callback: StageProgressCallback = None,
     retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
+    llm_rate_limit_requests: int = DEFAULT_LLM_RATE_LIMIT_REQUESTS,
+    llm_rate_limit_window_s: float = DEFAULT_LLM_RATE_LIMIT_WINDOW_S,
 ) -> VersionRegistrationResult:
     """
     Registers a compiled batch into the document registry and optionally the skill store.
@@ -1860,7 +1881,14 @@ def register_versions(
 
     effective_state = VersionState.DRAFT if dry_run else target_state
     preexisting_skills = list(registry.list_skills())
-    llm_impl = llm or build_llm(dict(getattr(getattr(sdk, "config", None), "llm", {}) or {"provider": "mock"}))
+    llm_config = dict(getattr(getattr(sdk, "config", None), "llm", {}) or {"provider": "mock"})
+    llm_impl = maybe_wrap_llm_with_rate_limit(
+        llm or build_llm(dict(llm_config)),
+        max_requests=llm_rate_limit_requests,
+        window_s=llm_rate_limit_window_s,
+        llm_config=llm_config,
+        scope=AUTOSKILL4DOC_LLM_SCOPE,
+    )
     sdk_config = getattr(sdk, "config", None)
     embeddings_config = dict(getattr(sdk_config, "embeddings", {}) or {"provider": "hashing", "dims": 256})
     bm25_weight = float(getattr(sdk_config, "bm25_weight", 0.1) or 0.1)
