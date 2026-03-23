@@ -20,5 +20,6 @@ SkillBank/Users/
 SkillBank/vectors/
 SkillBank/AutoSkill4Doc/
 SkillBank/DocSkill/
+SkillBank/ConvSkill/chat_message_openai_GLM4.7/
 examples/eval_reports/
 data/
