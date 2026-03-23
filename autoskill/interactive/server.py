@@ -297,7 +297,12 @@ def _skill_summary(skill: Skill) -> Dict[str, Any]:
     }
 
 
-def _skill_detail(skill: Skill, *, include_md: bool) -> Dict[str, Any]:
+def _skill_detail(
+    skill: Skill,
+    *,
+    include_md: bool,
+    provenance: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Run skill detail."""
     files = dict(skill.files or {})
     out = {
@@ -307,6 +312,8 @@ def _skill_detail(skill: Skill, *, include_md: bool) -> Dict[str, Any]:
         "metadata": dict(skill.metadata or {}),
         "source": (dict(skill.source or {}) if skill.source else None),
     }
+    if provenance:
+        out["provenance"] = provenance
     if include_md:
         out["skill_md"] = str(files.get("SKILL.md") or "")
     return out
@@ -1075,7 +1082,55 @@ class AutoSkillProxyRuntime:
                                 status=404,
                             )
                         include_md = _parse_bool(_q_first(qs, "include_md", "0"), default=False)
-                        return _json_response(self, {"object": "skill", "data": _skill_detail(skill, include_md=include_md)})
+                        user_id = runtime._resolve_user_id(body={}, headers=self.headers)
+                        user_q = _q_first(qs, "user", "")
+                        if user_q.strip():
+                            user_id = user_q.strip()
+                        prov = runtime.sdk.get_skill_provenance(
+                            user_id=user_id,
+                            skill_id=skill_id,
+                            max_sources=10,
+                            max_history=5,
+                            include_messages=False,
+                        )
+                        return _json_response(
+                            self,
+                            {
+                                "object": "skill",
+                                "data": _skill_detail(skill, include_md=include_md, provenance=prov),
+                            },
+                        )
+                    if tail == "/provenance":
+                        skill = runtime.sdk.get(skill_id)
+                        if skill is None:
+                            return _json_response(
+                                self,
+                                _openai_error("Skill not found", code="not_found"),
+                                status=404,
+                            )
+                        user_id = runtime._resolve_user_id(body={}, headers=self.headers)
+                        user_q = _q_first(qs, "user", "")
+                        if user_q.strip():
+                            user_id = user_q.strip()
+                        max_sources = max(1, min(200, int(_safe_int(_q_first(qs, "max_sources", "50"), 50) or 50)))
+                        max_history = max(1, min(200, int(_safe_int(_q_first(qs, "max_history", "50"), 50) or 50)))
+                        include_messages = _parse_bool(_q_first(qs, "include_messages", "1"), default=True)
+                        prov = runtime.sdk.get_skill_provenance(
+                            user_id=user_id,
+                            skill_id=skill_id,
+                            max_sources=max_sources,
+                            max_history=max_history,
+                            include_messages=include_messages,
+                        )
+                        return _json_response(
+                            self,
+                            {
+                                "object": "skill_provenance",
+                                "skill_id": skill_id,
+                                "user": user_id,
+                                "data": prov,
+                            },
+                        )
                     if tail == "/md":
                         skill = runtime.sdk.get(skill_id)
                         if skill is None:
@@ -1401,6 +1456,7 @@ class AutoSkillProxyRuntime:
                 "skills": {
                     "list": "/v1/autoskill/skills",
                     "get": "/v1/autoskill/skills/{skill_id}",
+                    "provenance": "/v1/autoskill/skills/{skill_id}/provenance",
                     "get_md": "/v1/autoskill/skills/{skill_id}/md",
                     "save_md": "/v1/autoskill/skills/{skill_id}/md",
                     "delete": "/v1/autoskill/skills/{skill_id}",
@@ -1469,6 +1525,9 @@ class AutoSkillProxyRuntime:
                 "/v1/autoskill/skills/{skill_id}": {
                     "get": {"summary": "Get one skill"},
                     "delete": {"summary": "Delete one skill"},
+                },
+                "/v1/autoskill/skills/{skill_id}/provenance": {
+                    "get": {"summary": "Get online extraction/update provenance for one skill"},
                 },
                 "/v1/autoskill/skills/{skill_id}/md": {
                     "get": {"summary": "Get SKILL.md"},
@@ -1873,7 +1932,17 @@ class AutoSkillProxyRuntime:
         return {
             "ok": True,
             "object": "skill",
-            "data": _skill_detail(skill, include_md=True),
+            "data": _skill_detail(
+                skill,
+                include_md=True,
+                provenance=self.sdk.get_skill_provenance(
+                    user_id=user_id,
+                    skill_id=skill_id,
+                    max_sources=10,
+                    max_history=5,
+                    include_messages=False,
+                ),
+            ),
             "history_count": int(history_size),
         }
 
@@ -1909,7 +1978,17 @@ class AutoSkillProxyRuntime:
         return {
             "ok": True,
             "object": "skill",
-            "data": _skill_detail(skill, include_md=True),
+            "data": _skill_detail(
+                skill,
+                include_md=True,
+                provenance=self.sdk.get_skill_provenance(
+                    user_id=user_id,
+                    skill_id=skill_id,
+                    max_sources=10,
+                    max_history=5,
+                    include_messages=False,
+                ),
+            ),
             "restored_from": {
                 "version": str(snapshot.get("version") or ""),
                 "updated_at": str(snapshot.get("updated_at") or ""),
@@ -2483,6 +2562,13 @@ class AutoSkillProxyRuntime:
                     "examples": _examples_to_raw(list(s.examples or [])),
                     "skill_md": md,
                     "skill_md_truncated": bool(truncated),
+                    "provenance": self.sdk.get_skill_provenance(
+                        user_id=str(s.user_id or ""),
+                        skill_id=str(s.id),
+                        max_sources=5,
+                        max_history=3,
+                        include_messages=True,
+                    ),
                 }
             )
         event["skills"] = skill_items
@@ -2514,6 +2600,7 @@ class AutoSkillProxyRuntime:
                         metadata={
                             "channel": "proxy_api",
                             "trigger": str(current.trigger),
+                            "job_id": str(current.job_id),
                             "extraction_reference": (
                                 dict(current.retrieval_reference)
                                 if isinstance(current.retrieval_reference, dict)

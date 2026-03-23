@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import queue
 import threading
+import uuid
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
@@ -113,6 +114,7 @@ class InteractiveChatApp:
         self._bg_usage_sema = threading.BoundedSemaphore(1)
         self._bg_usage_lock = threading.Lock()
         self._queued_usage: List[_BgUsageJob] = []
+        self.session_id = str(uuid.uuid4())
 
     def run(self) -> None:
         """Starts the blocking REPL loop."""
@@ -1016,6 +1018,7 @@ class InteractiveChatApp:
                         metadata={
                             "channel": "chat",
                             "trigger": str(current.trigger),
+                            "session_id": str(self.session_id),
                             "extraction_reference": (
                                 dict(current.retrieval_reference)
                                 if isinstance(current.retrieval_reference, dict)

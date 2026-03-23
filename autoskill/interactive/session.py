@@ -154,6 +154,7 @@ class InteractiveSession:
             if (chat_llm is not None and bool(getattr(self.config, "usage_tracking_enabled", True)))
             else None
         )
+        self.session_id = str(uuid.uuid4())
 
         self.messages: List[Dict[str, Any]] = []
         self._pending: Optional[_PendingExtraction] = None
@@ -179,6 +180,7 @@ class InteractiveSession:
             "config": asdict(self.config),
             "messages": list(self.messages),
             "pending": bool(self._pending),
+            "session_id": str(self.session_id),
         }
 
     def poll(self) -> Dict[str, Any]:
@@ -972,6 +974,13 @@ class InteractiveSession:
                     "instructions": str(s.instructions or ""),
                     "examples": examples_out,
                     "skill_md": md,
+                    "provenance": self.sdk.get_skill_provenance(
+                        user_id=self.config.user_id,
+                        skill_id=str(s.id),
+                        max_sources=5,
+                        max_history=3,
+                        include_messages=True,
+                    ),
                 }
             )
         return {
@@ -1392,6 +1401,8 @@ class InteractiveSession:
                         metadata={
                             "channel": "chat",
                             "trigger": str(current.trigger),
+                            "session_id": str(self.session_id),
+                            "job_id": str(current.job_id),
                             # Explicitly pass top-1 retrieval reference (or None).
                             "extraction_reference": (
                                 dict(current.retrieval_reference)

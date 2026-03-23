@@ -32,6 +32,11 @@ from .management.artifacts import (
 from .management.importer import import_agent_skill_dirs as _import_agent_skill_dirs
 from .management.stores.base import SkillStore
 from .management.stores.factory import build_store
+from .skill_provenance import (
+    load_online_skill_provenance as _load_online_skill_provenance,
+    online_skill_provenance_path as _online_skill_provenance_path,
+    record_online_skill_updates as _record_online_skill_updates,
+)
 from .utils.time import now_iso
 
 
@@ -111,7 +116,19 @@ class AutoSkill:
             retrieved_reference=retrieved_reference,
         )
         # 2) Maintain (dedupe/merge/version) and persist to store
-        return self.maintainer.apply(extracted, user_id=user_id, metadata=metadata)
+        updated = self.maintainer.apply(extracted, user_id=user_id, metadata=metadata)
+        try:
+            _record_online_skill_updates(
+                sdk=self,
+                user_id=user_id,
+                updated=list(updated or []),
+                messages=messages,
+                events=events,
+                metadata=metadata,
+            )
+        except Exception:
+            pass
+        return updated
 
     def extract_candidates(
         self,
@@ -201,6 +218,31 @@ class AutoSkill:
             user_id=user_id,
             metadata=metadata,
             hint=hint,
+        )
+
+    def skill_provenance_path(self, *, user_id: str) -> str:
+        """Returns the local path of the online extraction provenance index for one user."""
+
+        return _online_skill_provenance_path(sdk=self, user_id=user_id)
+
+    def get_skill_provenance(
+        self,
+        *,
+        user_id: str,
+        skill_id: str,
+        max_sources: int = 20,
+        max_history: int = 20,
+        include_messages: bool = True,
+    ) -> Dict[str, Any]:
+        """Loads one skill's online extraction/update provenance record."""
+
+        return _load_online_skill_provenance(
+            sdk=self,
+            user_id=user_id,
+            skill_id=skill_id,
+            max_sources=max_sources,
+            max_history=max_history,
+            include_messages=include_messages,
         )
 
     def import_openai_conversations(
