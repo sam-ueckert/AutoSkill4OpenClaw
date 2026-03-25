@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from ..ingest import DocumentIngestResult
     from ..stages.compiler import SkillCompilationResult
     from ..stages.extractor import SkillExtractionResult
-    from ..store.versioning import VersionRegistrationResult
+    from ..store.versioning import ChangeDecision, VersionRegistrationResult
 
 
 @dataclass
@@ -782,6 +782,82 @@ class IntermediateRunWriter:
             for payload in self.iter_register_documents()
             if str(payload.get("doc_id") or "").strip()
         ]
+
+    def write_register_decision(
+        self,
+        decision: "ChangeDecision",
+        *,
+        hits: int,
+        branch: str,
+        total_skills: int,
+    ) -> None:
+        """Writes one completed ChangeDecision checkpoint for register recovery."""
+
+        payload = {
+            "skill_id": str(getattr(decision.skill, "skill_id", "") or "").strip(),
+            "action": str(decision.action or "").strip(),
+            "matched_skill_ids": list(decision.matched_skill_ids or []),
+            "reason": str(decision.reason or "").strip(),
+            "split_parent_id": str(decision.split_parent_id or "").strip(),
+            "skill": decision.skill.to_dict(),
+            "hits": int(hits or 0),
+            "branch": str(branch or "").strip(),
+        }
+        skill_id = str(payload.get("skill_id") or "").strip()
+        if not skill_id:
+            return
+        self._write_json(f"register/decisions/{safe_dir_component(skill_id)}.json", payload)
+        self._set_stage(
+            stage="register_running",
+            counts={
+                "register_total_skills": max(int(total_skills or 0), len(self.processed_register_decision_ids())),
+                "register_decisions_completed": len(self.processed_register_decision_ids()),
+            },
+        )
+
+    def load_register_decisions(self) -> Dict[str, "ChangeDecision"]:
+        """Loads persisted register/classify ChangeDecision checkpoints."""
+
+        from ..models import SkillSpec
+        from ..store.versioning import ChangeDecision
+
+        decisions_dir = os.path.join(self.run_dir, "register", "decisions")
+        out: Dict[str, ChangeDecision] = {}
+        if not os.path.isdir(decisions_dir):
+            return out
+        for name in sorted(os.listdir(decisions_dir)):
+            if not name.endswith(".json"):
+                continue
+            path = os.path.join(decisions_dir, name)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except Exception:
+                continue
+            if not isinstance(payload, dict):
+                continue
+            skill_id = str(payload.get("skill_id") or "").strip()
+            skill_payload = payload.get("skill")
+            if not skill_id or not isinstance(skill_payload, dict):
+                continue
+            try:
+                out[skill_id] = ChangeDecision(
+                    action=str(payload.get("action") or "").strip(),
+                    skill=SkillSpec.from_dict(skill_payload),
+                    matched_skill_ids=list(payload.get("matched_skill_ids") or []),
+                    reason=str(payload.get("reason") or "").strip(),
+                    split_parent_id=str(payload.get("split_parent_id") or "").strip(),
+                    hits=int(payload.get("hits", 0) or 0),
+                    branch=str(payload.get("branch") or "").strip(),
+                )
+            except Exception:
+                continue
+        return out
+
+    def processed_register_decision_ids(self) -> List[str]:
+        """Returns skill ids that already have persisted ChangeDecision checkpoints."""
+
+        return list(self.load_register_decisions().keys())
 
     def write_registration(self, result: "VersionRegistrationResult") -> None:
         """Writes the completed registration snapshot."""

@@ -432,6 +432,7 @@ class DocumentBuildPipeline:
         metadata: Optional[Dict[str, Any]] = None,
         dry_run: bool = False,
         target_state: VersionState = VersionState.ACTIVE,
+        intermediate_writer: Optional[IntermediateRunWriter] = None,
         progress_callback=None,
     ) -> VersionRegistrationResult:
         """Runs the registry/version registration stage only."""
@@ -448,6 +449,7 @@ class DocumentBuildPipeline:
             dry_run=dry_run,
             target_state=target_state,
             logger=self.logger,
+            intermediate_writer=intermediate_writer,
             progress_callback=progress_callback,
             retrieval_score_threshold=self.retrieval_score_threshold,
             llm_rate_limit_requests=self.llm_rate_limit_requests,
@@ -1036,6 +1038,7 @@ class DocumentBuildPipeline:
                 metadata=metadata,
                 dry_run=dry_run,
                 target_state=target_state,
+                intermediate_writer=intermediate_writer,
                 progress_callback=_register_progress,
             )
             intermediate_writer.write_registration_progress(

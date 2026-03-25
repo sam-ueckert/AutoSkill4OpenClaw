@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 import json
 import os
 import uuid
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from autoskill import AutoSkill
 from autoskill.llm.base import LLM
@@ -53,6 +53,9 @@ from .retrieval import DEFAULT_RETRIEVAL_LIMIT, DocumentSkillRetriever, build_do
 from .staging import plain_skill_specs, write_registration_staging
 from .visible_tree import sync_visible_skill_tree
 
+if TYPE_CHECKING:
+    from .intermediate import IntermediateRunWriter
+
 _ACTIVE_STORE_STATES = {
     VersionState.CANDIDATE,
     VersionState.DRAFT,
@@ -60,6 +63,16 @@ _ACTIVE_STORE_STATES = {
     VersionState.ACTIVE,
     VersionState.WATCHLIST,
 }
+
+_REGISTER_HITS0_TIMEOUT_S = 300
+_REGISTER_HITS0_MAX_TOKENS = 256
+_REGISTER_HITS0_MAX_INPUT_CHARS = 12000
+_REGISTER_FULL_TIMEOUT_S = 300
+_REGISTER_FULL_MAX_TOKENS = 768
+_REGISTER_FULL_MAX_INPUT_CHARS = 20000
+_REGISTER_HIERARCHY_TIMEOUT_S = 180
+_REGISTER_HIERARCHY_MAX_TOKENS = 128
+_REGISTER_HIERARCHY_MAX_INPUT_CHARS = 8000
 
 
 def _bump_patch(version: str) -> str:
@@ -82,6 +95,63 @@ def _plain_skill(skill: Any) -> Dict[str, Any]:
         "version": str(getattr(skill, "version", "") or ""),
         "status": str(getattr(getattr(skill, "status", None), "value", getattr(skill, "status", "")) or ""),
     }
+
+
+def _register_change_decision_llm_config(
+    base_config: Dict[str, Any],
+    *,
+    hits0_branch: bool,
+) -> Dict[str, Any]:
+    """Clones one provider config with fixed register/classify_change budgets."""
+
+    cloned = dict(base_config or {})
+    if hits0_branch:
+        cloned["timeout_s"] = _REGISTER_HITS0_TIMEOUT_S
+        cloned["max_tokens"] = _REGISTER_HITS0_MAX_TOKENS
+        cloned["max_input_chars"] = _REGISTER_HITS0_MAX_INPUT_CHARS
+    else:
+        cloned["timeout_s"] = _REGISTER_FULL_TIMEOUT_S
+        cloned["max_tokens"] = _REGISTER_FULL_MAX_TOKENS
+        cloned["max_input_chars"] = _REGISTER_FULL_MAX_INPUT_CHARS
+    return cloned
+
+
+def _resolve_change_decision_llms(
+    *,
+    sdk: Optional[AutoSkill],
+    fallback_llm: LLM,
+) -> Tuple[LLM, LLM]:
+    """Builds dedicated classify_change llms when sdk llm config is available."""
+
+    llm_config = dict(getattr(getattr(sdk, "config", None), "llm", {}) or {})
+    if not llm_config:
+        return fallback_llm, fallback_llm
+    hits0_llm = build_llm(_register_change_decision_llm_config(llm_config, hits0_branch=True))
+    full_llm = build_llm(_register_change_decision_llm_config(llm_config, hits0_branch=False))
+    return hits0_llm, full_llm
+
+
+def _register_hierarchy_llm_config(base_config: Dict[str, Any]) -> Dict[str, Any]:
+    """Clones one provider config with fixed register/hierarchy budgets."""
+
+    cloned = dict(base_config or {})
+    cloned["timeout_s"] = _REGISTER_HIERARCHY_TIMEOUT_S
+    cloned["max_tokens"] = _REGISTER_HIERARCHY_MAX_TOKENS
+    cloned["max_input_chars"] = _REGISTER_HIERARCHY_MAX_INPUT_CHARS
+    return cloned
+
+
+def _resolve_hierarchy_link_llm(
+    *,
+    sdk: Optional[AutoSkill],
+    fallback_llm: LLM,
+) -> LLM:
+    """Builds one dedicated hierarchy-link llm when sdk llm config is available."""
+
+    llm_config = dict(getattr(getattr(sdk, "config", None), "llm", {}) or {})
+    if not llm_config:
+        return fallback_llm
+    return build_llm(_register_hierarchy_llm_config(llm_config))
 
 
 def _copy_skill(
@@ -173,20 +243,324 @@ def _copy_support(
     return SupportRecord.from_dict(payload)
 
 
+def _prompt_prefix_from_body(value: str) -> str:
+    """Extracts the freeform prompt prefix before structured markdown sections."""
+
+    lines: List[str] = []
+    for raw_line in str(value or "").splitlines():
+        if raw_line.strip().startswith("## "):
+            break
+        lines.append(raw_line.rstrip())
+    return "\n".join(lines).strip()
+
+
+def _identity_key_parts(skill: SkillSpec) -> Dict[str, str]:
+    """Parses stable identity key fields when present on one skill."""
+
+    raw = str((skill.metadata or {}).get("identity_key") or "").strip()
+    if not raw:
+        return {}
+    parts = raw.split("|")
+    if len(parts) < 12:
+        return {}
+    return {
+        "taxonomy_id": str(parts[0] or "").strip(),
+        "profile_id": str(parts[1] or "").strip(),
+        "family_scope": str(parts[2] or "").strip(),
+        "asset_type": str(parts[3] or "").strip(),
+        "granularity": str(parts[4] or "").strip(),
+        "asset_node_id": str(parts[5] or "").strip(),
+        "objective": str(parts[6] or "").strip(),
+        "domain": str(parts[7] or "").strip(),
+        "task_family": str(parts[8] or "").strip(),
+        "method_family": str(parts[9] or "").strip(),
+        "stage": str(parts[10] or "").strip(),
+        "name": str(parts[11] or "").strip(),
+    }
+
+
+def _effective_asset_type(skill: SkillSpec) -> str:
+    """Returns the best-known asset type, preferring historical identity metadata."""
+
+    return str(_identity_key_parts(skill).get("asset_type") or skill.asset_type or "").strip()
+
+
+def _effective_granularity(skill: SkillSpec) -> str:
+    """Returns the best-known granularity, preferring historical identity metadata."""
+
+    return str(_identity_key_parts(skill).get("granularity") or skill.granularity or "").strip()
+
+
+def _effective_asset_node_id(skill: SkillSpec) -> str:
+    """Returns the best-known hierarchy node id, preferring historical identity metadata."""
+
+    identity_parts = _identity_key_parts(skill)
+    return str(
+        identity_parts.get("asset_node_id")
+        or getattr(skill, "asset_node_id", "")
+        or (skill.metadata or {}).get("asset_node_id")
+        or ""
+    ).strip()
+
+
+def _visible_family_name(skill: SkillSpec, *, metadata: Optional[Dict[str, Any]]) -> str:
+    """Returns the visible family label used for duplicate-bucket scoping."""
+
+    skill_md = dict(skill.metadata or {})
+    candidates = [
+        str(skill_md.get("family_name") or "").strip(),
+        str(skill_md.get("school_name") or "").strip(),
+        str((metadata or {}).get("family_name") or "").strip(),
+        str((metadata or {}).get("school_name") or "").strip(),
+        str(skill_md.get("taxonomy_class") or "").strip(),
+        str(skill.domain or "").strip(),
+        str(skill.method_family or "").strip(),
+        "未分类技能",
+    ]
+    for candidate in candidates:
+        if candidate:
+            return candidate
+    return "未分类技能"
+
+
+def _family_scope_key(skill: SkillSpec, *, metadata: Optional[Dict[str, Any]]) -> Tuple[str, str]:
+    """Builds the scope key used when scanning for duplicate visible skills."""
+
+    skill_md = dict(skill.metadata or {})
+    profile_id = (
+        str(skill_md.get("profile_id") or "").strip()
+        or str((metadata or {}).get("profile_id") or "").strip()
+        or "document_profile"
+    )
+    family_key = normalize_text(_visible_family_name(skill, metadata=metadata), lower=True)
+    return profile_id, family_key
+
+
+def _duplicate_group_key(skill: SkillSpec, *, metadata: Optional[Dict[str, Any]]) -> Tuple[str, str, str, str, str, int, str]:
+    """Builds the deterministic grouping key for visible duplicate consolidation."""
+
+    profile_id, family_key = _family_scope_key(skill, metadata=metadata)
+    return (
+        profile_id,
+        family_key,
+        normalize_text(_effective_asset_type(skill), lower=True),
+        normalize_text(_effective_granularity(skill), lower=True),
+        normalize_text(_effective_asset_node_id(skill), lower=True),
+        max(0, int(skill.asset_level or 0)),
+        normalize_text(skill.name, lower=True),
+    )
+
+
+def _semver_sort_key(version: str) -> Tuple[int, int, int]:
+    """Parses a semver-like version into a sortable tuple."""
+
+    parts: List[int] = []
+    for raw in str(version or "").split("."):
+        try:
+            parts.append(int(str(raw or "").strip()))
+        except Exception:
+            parts.append(0)
+    while len(parts) < 3:
+        parts.append(0)
+    return int(parts[0]), int(parts[1]), int(parts[2])
+
+
+def _content_completeness_score(skill: SkillSpec) -> int:
+    """Scores how much structured content one skill already carries."""
+
+    return sum(
+        [
+            len(list(skill.applicable_signals or [])),
+            len(list(skill.contraindications or [])),
+            len(list(skill.intervention_moves or [])),
+            len(list(skill.triggers or [])),
+            len(list(skill.workflow_steps or [])),
+            len(list(skill.constraints or [])),
+            len(list(skill.cautions or [])),
+            len(list(skill.output_contract or [])),
+            len(list(skill.examples or [])),
+            len(list(skill.tags or [])),
+            1 if str(skill.description or "").strip() else 0,
+            1 if str(skill.skill_body or "").strip() else 0,
+        ]
+    )
+
+
+def _duplicate_primary_sort_key(skill: SkillSpec, *, preexisting_ids: Set[str]) -> Tuple[int, int, int, int, int, int, int, int, str]:
+    """Builds the stable ordering used to choose one canonical duplicate skill."""
+
+    hierarchy_status = str(skill.hierarchy_status or "").strip().lower()
+    hierarchy_rank = 2 if hierarchy_status == "linked" else 1 if hierarchy_status in {"parent", "root"} else 0
+    version_major, version_minor, version_patch = _semver_sort_key(skill.version)
+    return (
+        0 if skill.skill_id in preexisting_ids else 1,
+        0 if skill.status == VersionState.ACTIVE else 1,
+        -hierarchy_rank,
+        -len(list(skill.support_ids or [])),
+        -version_major,
+        -version_minor,
+        -version_patch,
+        -_content_completeness_score(skill),
+        str(skill.skill_id or "").strip(),
+    )
+
+
+def _merge_text_lists(*groups: Sequence[str]) -> List[str]:
+    """Merges multiple string lists while preserving first-seen order."""
+
+    out: List[str] = []
+    seen: Set[str] = set()
+    for group in groups:
+        for item in list(group or []):
+            value = str(item or "").strip()
+            key = normalize_text(value, lower=True)
+            if not value or not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(value)
+    return out
+
+
+def _merge_examples(*groups: Sequence[Any]) -> List[Any]:
+    """Merges example payloads while preserving canonical order."""
+
+    out: List[Any] = []
+    seen: Set[Tuple[str, str, str]] = set()
+    for group in groups:
+        for example in list(group or []):
+            input_text = str(getattr(example, "input", "") or "").strip()
+            output_text = str(getattr(example, "output", "") or "").strip()
+            notes_text = str(getattr(example, "notes", "") or "").strip()
+            key = (
+                normalize_text(input_text, lower=True),
+                normalize_text(output_text, lower=True),
+                normalize_text(notes_text, lower=True),
+            )
+            if not key[0] or key in seen:
+                continue
+            seen.add(key)
+            out.append(example)
+    return out
+
+
+def _support_summary_for_skill(skill: SkillSpec, *, support_by_id: Dict[str, SupportRecord]) -> Dict[str, int]:
+    """Recomputes support relation counts after local duplicate consolidation."""
+
+    counts = {
+        SupportRelation.SUPPORT.value: 0,
+        SupportRelation.CONSTRAINT.value: 0,
+        SupportRelation.CONFLICT.value: 0,
+        SupportRelation.CASE_VARIANT.value: 0,
+    }
+    for support_id in list(skill.support_ids or []):
+        support = support_by_id.get(str(support_id or "").strip())
+        if support is None:
+            continue
+        counts[support.relation_type.value] = counts.get(support.relation_type.value, 0) + 1
+    return counts
+
+
+def _skill_with_frozen_identity(
+    *,
+    base: SkillSpec,
+    content: SkillSpec,
+    version: Optional[str] = None,
+    status: Optional[VersionState] = None,
+    support_ids: Optional[List[str]] = None,
+    metadata_update: Optional[Dict[str, Any]] = None,
+) -> SkillSpec:
+    """Applies content updates onto one skill while preserving its identity surface."""
+
+    payload = base.to_dict()
+    payload["description"] = str(content.description or base.description).strip()
+    payload["skill_body"] = str(content.skill_body or base.skill_body).strip()
+    payload["applicable_signals"] = list(content.applicable_signals or base.applicable_signals or [])
+    payload["contraindications"] = list(content.contraindications or base.contraindications or [])
+    payload["intervention_moves"] = list(content.intervention_moves or base.intervention_moves or [])
+    payload["workflow_steps"] = list(content.workflow_steps or base.workflow_steps or [])
+    payload["constraints"] = list(content.constraints or base.constraints or [])
+    payload["cautions"] = list(content.cautions or base.cautions or [])
+    payload["output_contract"] = list(content.output_contract or base.output_contract or [])
+    payload["examples"] = [
+        {
+            "input": str(example.input or ""),
+            "output": str(example.output or ""),
+            "notes": str(example.notes or ""),
+        }
+        for example in list(content.examples or base.examples or [])
+    ]
+    payload["tags"] = list(content.tags or base.tags or [])
+    payload["triggers"] = list(base.triggers or [])
+    if version is not None:
+        payload["version"] = str(version or "0.1.0")
+    if status is not None:
+        payload["status"] = status.value
+    if support_ids is not None:
+        payload["support_ids"] = list(support_ids or [])
+    md = dict(payload.get("metadata") or {})
+    if metadata_update:
+        md.update(dict(metadata_update or {}))
+    payload["metadata"] = md
+    return SkillSpec.from_dict(payload)
+
+
+def _rewrite_skill_links(skill: SkillSpec, *, replace_map: Dict[str, str]) -> SkillSpec:
+    """Rewrites parent/child references when secondary duplicate ids collapse into a canonical id."""
+
+    if not replace_map:
+        return skill
+    payload = skill.to_dict()
+    parent_skill_id = str(payload.get("parent_skill_id") or "").strip()
+    child_skill_ids = [replace_map.get(str(item or "").strip(), str(item or "").strip()) for item in list(payload.get("child_skill_ids") or [])]
+    parent_candidate_ids = [
+        replace_map.get(str(item or "").strip(), str(item or "").strip())
+        for item in list(payload.get("parent_candidate_ids") or [])
+    ]
+    if parent_skill_id:
+        payload["parent_skill_id"] = replace_map.get(parent_skill_id, parent_skill_id)
+    payload["child_skill_ids"] = list(dict.fromkeys([item for item in child_skill_ids if item]))
+    payload["parent_candidate_ids"] = list(dict.fromkeys([item for item in parent_candidate_ids if item]))
+    md = dict(payload.get("metadata") or {})
+    if str(md.get("parent_skill_id") or "").strip():
+        md["parent_skill_id"] = replace_map.get(str(md.get("parent_skill_id") or "").strip(), str(md.get("parent_skill_id") or "").strip())
+    if isinstance(md.get("child_skill_ids"), list):
+        md["child_skill_ids"] = list(
+            dict.fromkeys(
+                [
+                    replace_map.get(str(item or "").strip(), str(item or "").strip())
+                    for item in list(md.get("child_skill_ids") or [])
+                    if str(item or "").strip()
+                ]
+            )
+        )
+    if isinstance(md.get("parent_candidate_ids"), list):
+        md["parent_candidate_ids"] = list(
+            dict.fromkeys(
+                [
+                    replace_map.get(str(item or "").strip(), str(item or "").strip())
+                    for item in list(md.get("parent_candidate_ids") or [])
+                    if str(item or "").strip()
+                ]
+            )
+        )
+    payload["metadata"] = md
+    return SkillSpec.from_dict(payload)
+
+
 def _same_asset_layer(left: SkillSpec, right: SkillSpec) -> bool:
     """Checks whether two skills live at the same asset type and granularity."""
 
     return (
-        str(left.asset_type or "").strip() == str(right.asset_type or "").strip()
-        and str(left.granularity or "").strip() == str(right.granularity or "").strip()
+        _effective_asset_type(left) == _effective_asset_type(right)
+        and _effective_granularity(left) == _effective_granularity(right)
     )
 
 
 def _same_asset_node(left: SkillSpec, right: SkillSpec) -> bool:
     """Checks whether two skills live under the same configured hierarchy node."""
 
-    left_node = str(getattr(left, "asset_node_id", "") or (left.metadata or {}).get("asset_node_id") or "").strip()
-    right_node = str(getattr(right, "asset_node_id", "") or (right.metadata or {}).get("asset_node_id") or "").strip()
+    left_node = _effective_asset_node_id(left)
+    right_node = _effective_asset_node_id(right)
     if left_node and right_node:
         return left_node == right_node
     return True
@@ -272,6 +646,128 @@ def _conflicting_support_ids(support_ids: Sequence[str], support_by_id: Dict[str
     return out
 
 
+def _clip_text(value: str, limit: int) -> str:
+    """Returns one normalized string clipped to a stable maximum length."""
+
+    text = normalize_text(str(value or ""))
+    max_len = max(0, int(limit or 0))
+    if not text or max_len <= 0:
+        return ""
+    if len(text) <= max_len:
+        return text
+    if max_len <= 3:
+        return text[:max_len]
+    return text[: max_len - 3].rstrip() + "..."
+
+
+def _clip_list(values: Sequence[str], limit: int, item_limit: int) -> List[str]:
+    """Keeps a short deduplicated list with each item clipped."""
+
+    out: List[str] = []
+    for value in compact_text_list(list(values or []), limit=max(1, int(limit or 1))):
+        clipped = _clip_text(str(value or ""), item_limit)
+        if clipped:
+            out.append(clipped)
+    return out
+
+
+def _support_summary_for_change_decision(
+    skill: SkillSpec,
+    support_by_id: Dict[str, SupportRecord],
+) -> Dict[str, Any]:
+    """Builds one compact evidence summary for change classification."""
+
+    support_count = 0
+    conflict_count = 0
+    sections: List[str] = []
+    snippets: List[str] = []
+    for support_id in list(skill.support_ids or []):
+        support = support_by_id.get(str(support_id or "").strip())
+        if support is None:
+            continue
+        if support.relation_type == SupportRelation.CONFLICT:
+            conflict_count += 1
+        else:
+            support_count += 1
+        section_label = str(support.section or support.source_file or "").strip()
+        if section_label:
+            sections.append(section_label)
+        excerpt = _clip_text(str(support.excerpt or ""), 180)
+        if excerpt:
+            relation = str(support.relation_type.value or "").strip().upper()
+            if section_label:
+                snippets.append(f"{relation} | {section_label}: {excerpt}")
+            else:
+                snippets.append(f"{relation} | {excerpt}")
+    return {
+        "support_count": support_count,
+        "conflict_count": conflict_count,
+        "support_sections": _clip_list(sections, limit=4, item_limit=80),
+        "evidence_snippets": _clip_list(snippets, limit=2, item_limit=240),
+    }
+
+
+def _compact_skill_for_change_decision(
+    skill: SkillSpec,
+    support_by_id: Dict[str, SupportRecord],
+    *,
+    include_evidence: bool,
+) -> Dict[str, Any]:
+    """Serializes one skill into the minimal payload needed for change decisions."""
+
+    payload = {
+        "skill_id": str(skill.skill_id or "").strip(),
+        "name": _clip_text(skill.name, 120),
+        "description": _clip_text(skill.description, 280),
+        "asset_type": _clip_text(skill.asset_type, 48),
+        "granularity": _clip_text(skill.granularity, 32),
+        "asset_node_id": _clip_text(skill.asset_node_id, 96),
+        "asset_level": int(skill.asset_level or 0),
+        "objective": _clip_text(skill.objective, 280),
+        "domain": _clip_text(skill.domain, 64),
+        "task_family": _clip_text(skill.task_family, 96),
+        "method_family": _clip_text(skill.method_family, 96),
+        "stage": _clip_text(skill.stage, 96),
+        "workflow_steps": _clip_list(skill.workflow_steps, limit=6, item_limit=180),
+        "intervention_moves": _clip_list(skill.intervention_moves, limit=6, item_limit=180),
+        "constraints": _clip_list(skill.constraints, limit=4, item_limit=180),
+        "cautions": _clip_list(skill.cautions, limit=4, item_limit=180),
+    }
+    if include_evidence:
+        payload["support_summary"] = _support_summary_for_change_decision(skill, support_by_id)
+    return payload
+
+
+def _peer_relevance_score(candidate: SkillSpec, peer: SkillSpec) -> float:
+    """Ranks same-batch peers by how useful they are for split/discard decisions."""
+
+    if str(peer.skill_id or "").strip() == str(candidate.skill_id or "").strip():
+        return float("-inf")
+
+    score = 0.0
+    if str(candidate.asset_type or "").strip() == str(peer.asset_type or "").strip():
+        score += 10.0
+    if str(candidate.granularity or "").strip() == str(peer.granularity or "").strip():
+        score += 10.0
+    candidate_node = str(candidate.asset_node_id or "").strip()
+    peer_node = str(peer.asset_node_id or "").strip()
+    if candidate_node and peer_node and candidate_node == peer_node:
+        score += 10.0
+
+    for field_name in ("task_family", "method_family", "stage"):
+        left = normalize_text(getattr(candidate, field_name, ""), lower=True)
+        right = normalize_text(getattr(peer, field_name, ""), lower=True)
+        if left and right and left == right:
+            score += 4.0
+
+    candidate_tokens = set(normalize_text(f"{candidate.name} {candidate.objective}", lower=True).split())
+    peer_tokens = set(normalize_text(f"{peer.name} {peer.objective}", lower=True).split())
+    candidate_tokens.discard("")
+    peer_tokens.discard("")
+    score += min(3.0, float(len(candidate_tokens & peer_tokens)))
+    return score
+
+
 def _support_lookup(
     registry: DocumentRegistry,
     support_records: Sequence[SupportRecord],
@@ -293,6 +789,8 @@ class ChangeDecision:
     matched_skill_ids: List[str] = field(default_factory=list)
     reason: str = ""
     split_parent_id: str = ""
+    hits: int = 0
+    branch: str = ""
 
 
 @dataclass
@@ -546,6 +1044,9 @@ class VersionManager:
         *,
         registry: DocumentRegistry,
         llm: LLM,
+        hits0_change_llm: Optional[LLM] = None,
+        full_change_llm: Optional[LLM] = None,
+        hierarchy_link_llm: Optional[LLM] = None,
         retriever: Optional[DocumentSkillRetriever] = None,
         retrieval_limit: int = DEFAULT_RETRIEVAL_LIMIT,
         logger: StageLogger = None,
@@ -553,6 +1054,9 @@ class VersionManager:
     ) -> None:
         self.registry = registry
         self.llm = llm
+        self.hits0_change_llm = hits0_change_llm or llm
+        self.full_change_llm = full_change_llm or llm
+        self.hierarchy_link_llm = hierarchy_link_llm or llm
         self.retriever = retriever
         self.retrieval_limit = max(1, int(retrieval_limit or DEFAULT_RETRIEVAL_LIMIT))
         self.logger = logger
@@ -674,7 +1178,9 @@ class VersionManager:
         item = maybe_json_dict(raw)
         if not item:
             return fallback
-        prompt = str(item.get("prompt") or item.get("skill_body") or fallback.skill_body).strip()
+        prompt = _prompt_prefix_from_body(str(item.get("prompt") or item.get("skill_body") or "").strip()) or _prompt_prefix_from_body(
+            fallback.skill_body
+        )
         intervention_moves = compact_text_list(coerce_str_list(item.get("intervention_moves")), limit=12) or list(
             fallback.intervention_moves or []
         )
@@ -693,7 +1199,7 @@ class VersionManager:
         examples = _coerce_examples(item.get("examples")) or list(fallback.examples or [])
         if not prompt or (not workflow_steps and not intervention_moves and not constraints and not cautions):
             return fallback
-        objective = str(item.get("objective") or fallback.objective or fallback.description).strip()
+        objective = str(fallback.objective or fallback.description).strip()
         structured_prompt = _build_structured_prompt(
             prompt=prompt,
             objective=objective,
@@ -708,32 +1214,31 @@ class VersionManager:
         )
         return SkillSpec(
             skill_id=fallback.skill_id,
-            name=str(item.get("name") or fallback.name).strip(),
+            name=str(fallback.name or "").strip(),
             description=str(item.get("description") or fallback.description).strip(),
             skill_body=structured_prompt,
-            asset_type=str(item.get("asset_type") or fallback.asset_type).strip(),
-            granularity=str(item.get("granularity") or fallback.granularity).strip(),
-            asset_node_id=str(item.get("asset_node_id") or fallback.asset_node_id).strip(),
-            asset_path=str(item.get("asset_path") or fallback.asset_path).strip(),
-            asset_level=int(item.get("asset_level", fallback.asset_level) or fallback.asset_level or 0),
-            visible_role=str(item.get("visible_role") or fallback.visible_role).strip(),
+            asset_type=str(fallback.asset_type or "").strip(),
+            granularity=str(fallback.granularity or "").strip(),
+            asset_node_id=str(fallback.asset_node_id or "").strip(),
+            asset_path=str(fallback.asset_path or "").strip(),
+            asset_level=int(fallback.asset_level or 0),
+            visible_role=str(fallback.visible_role or "").strip(),
             objective=objective,
-            domain=str(item.get("domain") or fallback.domain).strip(),
-            task_family=str(item.get("task_family") or fallback.task_family).strip(),
-            method_family=str(item.get("method_family") or fallback.method_family).strip(),
-            stage=str(item.get("stage") or fallback.stage).strip(),
+            domain=str(fallback.domain or "").strip(),
+            task_family=str(fallback.task_family or "").strip(),
+            method_family=str(fallback.method_family or "").strip(),
+            stage=str(fallback.stage or "").strip(),
             applicable_signals=applicable_signals,
             contraindications=contraindications,
             intervention_moves=intervention_moves,
-            triggers=compact_text_list(coerce_str_list(item.get("triggers")), limit=5) or list(fallback.triggers or []),
+            triggers=list(fallback.triggers or []),
             workflow_steps=workflow_steps,
             constraints=constraints,
             cautions=cautions,
             output_contract=output_contract,
             examples=examples,
             tags=compact_text_list(coerce_str_list(item.get("tags")), limit=6) or list(fallback.tags or []),
-            support_ids=compact_text_list(coerce_str_list(item.get("support_ids")), limit=64)
-            or list(fallback.support_ids or []),
+            support_ids=list(fallback.support_ids or []),
             metadata={
                 **dict(fallback.metadata or {}),
                 "files": maybe_json_dict(item.get("files")) or maybe_json_dict((fallback.metadata or {}).get("files")),
@@ -754,112 +1259,116 @@ class VersionManager:
     ) -> ChangeDecision:
         """Uses an LLM to classify how one candidate should affect registry state."""
 
-        compact_candidate = self._skill_for_change_llm(skill, support_by_id=support_by_id)
-        compact_existing = [
-            self._skill_for_change_llm(existing, support_by_id=support_by_id)
-            for existing in list(existing_skills or [])
-        ][:DEFAULT_RETRIEVAL_LIMIT]
-        if not compact_existing:
-            payload = {"candidate_skill": compact_candidate}
+        ranked_peers = sorted(
+            [
+                (index, peer, _peer_relevance_score(skill, peer))
+                for index, peer in enumerate(list(peer_skills or []))
+                if peer.skill_id != skill.skill_id
+            ],
+            key=lambda item: (-item[2], item[0]),
+        )
+        payload = {
+            "candidate_skill": _compact_skill_for_change_decision(
+                skill,
+                support_by_id,
+                include_evidence=True,
+            ),
+            "peer_candidates": [
+                _compact_skill_for_change_decision(peer, support_by_id, include_evidence=False)
+                for _, peer, _ in ranked_peers[:3]
+            ],
+            "existing_skills": [
+                _compact_skill_for_change_decision(existing, support_by_id, include_evidence=False)
+                for existing in list(existing_skills or [])
+            ][:12],
+        }
+        payload_chars = len(json.dumps(payload, ensure_ascii=False))
+        if payload["existing_skills"]:
+            change_llm = self.full_change_llm
+            allowed_actions = {"create", "strengthen", "revise", "merge", "split", "unchanged", "discard"}
+            branch = "full"
             system = (
                 "You are AutoSkill's Document Skill Version Manager.\n"
-                "Task: decide whether one brand-new candidate skill should be created or discarded.\n"
+                "Task: decide how one candidate document skill should update the registry.\n"
                 "Output ONLY strict JSON parseable by json.loads.\n"
+                "Actions:\n"
+                "- create: a new distinct capability\n"
+                "- strengthen: same capability, mostly stronger evidence or minor additive guidance\n"
+                "- revise: same capability, materially updated instructions or constraints\n"
+                "- merge: candidate should merge into one or more existing skills and may deprecate overlapping older skills\n"
+                "- split: candidate is one child workflow split out from an older broader parent skill\n"
+                "- unchanged: candidate does not materially change the existing skill\n"
+                "- discard: do not persist candidate\n"
                 "Rules:\n"
-                "- Use discard only when the candidate is too weak, redundant, or not a reusable executable skill.\n"
-                "- Use create when it is a reusable skill worth registering.\n"
-                "- Prefer discard over create when the candidate is just topical summary, case narrative, or low-signal duplicate wording.\n"
-                "- A reusable skill should expose a callable contract: when to use it, when not to use it, and what output or handoff it should produce.\n"
-                "- resolved_skill, when provided, should only clean up the same candidate rather than changing its identity.\n"
+                "- Decide from semantic capability identity, not lexical similarity.\n"
+                "- Do not merge, strengthen, revise, or mark unchanged across different asset_type, granularity, or asset_node_id.\n"
+                "- Treat macro_protocol, session_skill, micro_skill, safety_rule, and knowledge_reference as different asset layers unless there is an explicit split relationship.\n"
+                "- Use peer_candidates to detect split cases where multiple narrower candidates replace one broad existing skill.\n"
+                "- Use support conflict evidence to avoid preserving outdated or unsafe guidance.\n"
+                "- If action is strengthen/revise/unchanged/split, target_skill_ids should contain exactly one existing skill id.\n"
+                "- If action is merge, target_skill_ids may contain one or more existing skill ids.\n"
+                "- Provide resolved_skill only to refine executable content.\n"
+                "- Do not change name, objective, asset_type, granularity, asset_node_id, asset_path, asset_level, visible_role, domain, task_family, method_family, stage, triggers, or support_ids inside resolved_skill.\n"
                 "Return schema:\n"
                 "{\n"
-                '  "action": "create"|"discard",\n'
+                '  "action": "create"|"strengthen"|"revise"|"merge"|"split"|"unchanged"|"discard",\n'
+                '  "target_skill_ids": ["..."],\n'
                 '  "reason": "short reason",\n'
                 '  "resolved_skill": {optional canonical skill payload}\n'
                 "}\n"
             )
             repair_system = (
                 "You are a JSON output fixer for document skill version decisions.\n"
-                "Given DATA and DRAFT, output ONLY strict JSON with fields action, reason, resolved_skill.\n"
+                "Given DATA and DRAFT, output ONLY strict JSON with fields action, target_skill_ids, reason, resolved_skill.\n"
             )
-            repaired_payload = f"DATA:\n{json.dumps(payload, ensure_ascii=False)}\n\nDRAFT:\n__DRAFT__"
-            parsed = llm_complete_json(
-                llm=self.llm,
-                system=system,
-                payload=payload,
-                repair_system=repair_system,
-                repair_payload=repaired_payload,
+        else:
+            change_llm = self.hits0_change_llm
+            allowed_actions = {"create", "discard"}
+            branch = "hits0"
+            system = (
+                "You are AutoSkill's Document Skill Version Manager.\n"
+                "Task: judge whether one candidate document skill should be kept as a new skill or discarded.\n"
+                "Output ONLY strict JSON parseable by json.loads.\n"
+                "Actions:\n"
+                "- create: keep this candidate as a new distinct capability\n"
+                "- discard: do not persist this candidate\n"
+                "Rules:\n"
+                "- There are no retrieved existing_skills in this branch, so target_skill_ids must be empty.\n"
+                "- Use peer_candidates only to detect same-batch redundancy or obvious overlap that makes the candidate unnecessary.\n"
+                "- Use support conflict evidence to avoid preserving outdated or unsafe guidance.\n"
+                "- Provide resolved_skill only to refine executable content.\n"
+                "- Do not change name, objective, asset_type, granularity, asset_node_id, asset_path, asset_level, visible_role, domain, task_family, method_family, stage, triggers, or support_ids inside resolved_skill.\n"
+                "Return schema:\n"
+                "{\n"
+                '  "action": "create"|"discard",\n'
+                '  "target_skill_ids": [],\n'
+                '  "reason": "short reason",\n'
+                '  "resolved_skill": {optional canonical skill payload}\n'
+                "}\n"
             )
-            obj = maybe_json_dict(parsed)
-            action = str(obj.get("action") or "").strip().lower()
-            if action not in {"create", "discard"}:
-                action = "create"
-            return ChangeDecision(
-                action=action,
-                skill=self._resolved_skill(obj.get("resolved_skill"), fallback=skill),
-                matched_skill_ids=[],
-                reason=str(obj.get("reason") or "").strip() or action,
-                split_parent_id="",
+            repair_system = (
+                "You are a JSON output fixer for document skill keep-or-discard decisions.\n"
+                "Given DATA and DRAFT, output ONLY strict JSON with fields action, target_skill_ids, reason, resolved_skill.\n"
+                'The action must be either "create" or "discard", and target_skill_ids must be an empty list.\n'
             )
-
-        compact_peers: List[Dict[str, Any]] = []
-        if _needs_peer_context(skill, peer_skills=peer_skills, existing_skills=existing_skills):
-            compact_peers = [
-                self._skill_for_change_llm(peer, support_by_id=support_by_id)
-                for peer in list(peer_skills or [])
-                if peer.skill_id != skill.skill_id
-            ][:1]
-
-        payload = {"candidate_skill": compact_candidate, "existing_skills": compact_existing}
-        if compact_peers:
-            payload["peer_candidates"] = compact_peers
-        system = (
-            "You are AutoSkill's Document Skill Version Manager.\n"
-            "Task: decide how one candidate document skill should update the registry.\n"
-            "Output ONLY strict JSON parseable by json.loads.\n"
-            "Actions:\n"
-            "- create: a new distinct capability\n"
-            "- strengthen: same capability, mostly stronger evidence or minor additive guidance\n"
-            "- revise: same capability, materially updated instructions or constraints\n"
-            "- merge: candidate should merge into one or more existing skills and may deprecate overlapping older skills\n"
-            "- split: candidate is one child workflow split out from an older broader parent skill\n"
-            "- unchanged: candidate does not materially change the existing skill\n"
-            "- discard: do not persist candidate\n"
-            "Rules:\n"
-            "- Decide from semantic capability identity, not lexical similarity.\n"
-            "- candidate_skill and existing_skills are compact summaries; do not assume omitted fields are meaningful differences.\n"
-            "- Skill identity depends on its callable contract: invocation cues, guardrails, core workflow, and output contract.\n"
-            "- Do not merge, strengthen, revise, or mark unchanged across different asset_type, granularity, or asset_node_id.\n"
-            "- Treat macro_protocol, session_skill, micro_skill, safety_rule, and knowledge_reference as different asset layers unless there is an explicit split relationship.\n"
-            "- peer_candidates, when present, are weak context only for split detection and NEVER valid merge targets.\n"
-            "- Use support conflict evidence to avoid preserving outdated or unsafe guidance.\n"
-            "- target_skill_ids must be chosen only from existing_skills.skill_id values shown in DATA.\n"
-            "- If no existing skill is a valid target, choose create or discard instead of inventing a target.\n"
-            "- Do not choose merge or revise just because names overlap; capability identity depends on invocation cues + objective + workflow + guardrails + output contract.\n"
-            "- Use strengthen when the same callable interface is preserved and the candidate mainly adds evidence, detail, or robustness.\n"
-            "- Use revise when the same capability remains but the caller-facing contract, workflow, or guardrails materially change.\n"
-            "- Prefer create when the candidate would require a different caller decision boundary or a different downstream handoff.\n"
-            "- If action is strengthen/revise/unchanged/split, target_skill_ids should contain exactly one existing skill id.\n"
-            "- If action is merge, target_skill_ids may contain one or more existing skill ids.\n"
-            "- Provide resolved_skill when action is strengthen/revise/merge/unchanged and when rewriting the candidate makes the result clearer.\n"
-            "Return schema:\n"
-            "{\n"
-            '  "action": "create"|"strengthen"|"revise"|"merge"|"split"|"unchanged"|"discard",\n'
-            '  "target_skill_ids": ["..."],\n'
-            '  "reason": "short reason",\n'
-            '  "resolved_skill": {optional canonical skill payload}\n'
-            "}\n"
-        )
-        repair_system = (
-            "You are a JSON output fixer for document skill version decisions.\n"
-            "Given DATA and DRAFT, output ONLY strict JSON with fields action, target_skill_ids, reason, resolved_skill.\n"
-        )
         repaired_payload = (
             f"DATA:\n{json.dumps(payload, ensure_ascii=False)}\n\n"
             "DRAFT:\n__DRAFT__"
         )
+        emit_stage_log(
+            self.logger,
+            (
+                f"[register_versions] classify_change skill={skill.skill_id} "
+                f"branch={branch} "
+                f"hits={len(payload['existing_skills'])} "
+                f"peer_count={len(payload['peer_candidates'])} "
+                f"payload_chars={payload_chars} "
+                f"timeout_s={getattr(change_llm, 'timeout_s', '')} "
+                f"max_tokens={getattr(change_llm, 'max_tokens', '')}"
+            ),
+        )
         parsed = llm_complete_json(
-            llm=self.llm,
+            llm=change_llm,
             system=system,
             payload=payload,
             repair_system=repair_system,
@@ -867,43 +1376,87 @@ class VersionManager:
         )
         obj = maybe_json_dict(parsed)
         action = str(obj.get("action") or "").strip().lower()
-        if action not in {"create", "strengthen", "revise", "merge", "split", "unchanged", "discard"}:
+        if action not in allowed_actions:
             action = "create"
-        matched = compact_text_list(coerce_str_list(obj.get("target_skill_ids")), limit=8)
+        matched = compact_text_list(coerce_str_list(obj.get("target_skill_ids")), limit=8) if payload["existing_skills"] else []
         resolved = self._resolved_skill(obj.get("resolved_skill"), fallback=skill)
         reason = str(obj.get("reason") or "").strip() or action
         existing_by_id = {existing.skill_id: existing for existing in list(existing_skills or [])}
         matched_existing = [existing_by_id[skill_id] for skill_id in matched if skill_id in existing_by_id]
-        if action in {"strengthen", "revise", "merge", "unchanged"} and not matched_existing:
-            action = "create"
-            matched = []
-            reason = "create (matched existing targets missing from retrieved candidates)"
+        if action in {"strengthen", "revise", "merge", "unchanged"} and not matched_existing and payload["existing_skills"]:
+            legal_retrieved = [
+                existing
+                for existing in list(existing_skills or [])
+                if _same_asset_layer(skill, existing) and _same_asset_node(skill, existing)
+            ]
+            if legal_retrieved:
+                matched = [legal_retrieved[0].skill_id]
+                matched_existing = [legal_retrieved[0]]
+                emit_stage_log(
+                    self.logger,
+                    f"[register_versions] local_retarget skill={skill.skill_id} action={action} target={matched[0]} reason=missing_target",
+                )
         if action in {"strengthen", "revise", "merge", "unchanged"} and matched_existing:
-            if any(not _same_asset_layer(resolved, existing) for existing in matched_existing):
-                action = "create"
-                matched = []
-                reason = "create (cross-layer merge blocked)"
-            elif any(not _same_asset_node(resolved, existing) for existing in matched_existing):
-                action = "create"
-                matched = []
-                reason = "create (cross-node merge blocked)"
-        if action == "split":
-            if not matched_existing:
-                action = "create"
-                matched = []
-                reason = "create (split parent missing from retrieved candidates)"
-            else:
-                parent = matched_existing[0]
-                if _granularity_rank(resolved.granularity) <= _granularity_rank(parent.granularity):
+            legal_retrieved = [
+                existing
+                for existing in list(existing_skills or [])
+                if _same_asset_layer(skill, existing) and _same_asset_node(skill, existing)
+            ]
+            legal_matched = [existing for existing in matched_existing if existing.skill_id in {item.skill_id for item in legal_retrieved}]
+            if action == "merge":
+                if legal_matched:
+                    matched = [existing.skill_id for existing in legal_matched]
+                elif legal_retrieved:
+                    matched = [legal_retrieved[0].skill_id]
+                    emit_stage_log(
+                        self.logger,
+                        f"[register_versions] local_retarget skill={skill.skill_id} action=merge target={matched[0]}",
+                    )
+                elif any(not _same_asset_layer(skill, existing) for existing in matched_existing):
                     action = "create"
                     matched = []
-                    reason = "create (split requires narrower child)"
+                    reason = "create (cross-layer merge blocked)"
+                elif any(not _same_asset_node(skill, existing) for existing in matched_existing):
+                    action = "create"
+                    matched = []
+                    reason = "create (cross-node merge blocked)"
+                else:
+                    action = "create"
+                    matched = []
+            else:
+                if legal_matched:
+                    matched = [legal_matched[0].skill_id]
+                elif legal_retrieved:
+                    matched = [legal_retrieved[0].skill_id]
+                    emit_stage_log(
+                        self.logger,
+                        f"[register_versions] local_retarget skill={skill.skill_id} action={action} target={matched[0]}",
+                    )
+                elif any(not _same_asset_layer(skill, existing) for existing in matched_existing):
+                    action = "create"
+                    matched = []
+                    reason = "create (cross-layer merge blocked)"
+                elif any(not _same_asset_node(skill, existing) for existing in matched_existing):
+                    action = "create"
+                    matched = []
+                    reason = "create (cross-node merge blocked)"
+                else:
+                    action = "create"
+                    matched = []
+        if action == "split" and matched_existing:
+            parent = matched_existing[0]
+            if _granularity_rank(resolved.granularity) <= _granularity_rank(parent.granularity):
+                action = "create"
+                matched = []
+                reason = "create (split requires narrower child)"
         return ChangeDecision(
             action=action,
             skill=resolved,
             matched_skill_ids=matched,
             reason=reason,
             split_parent_id=(matched[0] if action == "split" and matched else ""),
+            hits=len(payload["existing_skills"]),
+            branch=branch,
         )
 
     def _taxonomy_for_skill(self, skill: SkillSpec) -> Any:
@@ -986,34 +1539,57 @@ class VersionManager:
             "Return ONLY strict JSON with decision, parent_skill_id, confidence, reason.\n"
         )
         repaired_payload = f"DATA:\n{json.dumps(payload, ensure_ascii=False)}\n\nDRAFT:\n__DRAFT__"
-        parsed = llm_complete_json(
-            llm=self.llm,
-            system=system,
-            payload=payload,
-            repair_system=repair_system,
-            repair_payload=repaired_payload,
-        )
-        obj = maybe_json_dict(parsed)
-        decision = str(obj.get("decision") or "").strip().lower()
-        parent_skill_id = str(obj.get("parent_skill_id") or "").strip()
-        confidence = clip_confidence(obj.get("confidence"), default=0.0)
-        reason = str(obj.get("reason") or "").strip()
-        valid_ids = {str(hit.skill.skill_id or "").strip() for hit in hits}
-        if decision == "attach" and parent_skill_id in valid_ids:
-            return {
-                "decision": "attach",
-                "parent_skill_id": parent_skill_id,
-                "confidence": confidence,
-                "reason": reason or "llm hierarchy attachment",
+        try:
+            parsed = llm_complete_json(
+                llm=self.hierarchy_link_llm or self.llm,
+                system=system,
+                payload=payload,
+                repair_system=repair_system,
+                repair_payload=repaired_payload,
+            )
+            obj = maybe_json_dict(parsed)
+            decision = str(obj.get("decision") or "").strip().lower()
+            parent_skill_id = str(obj.get("parent_skill_id") or "").strip()
+            confidence = clip_confidence(obj.get("confidence"), default=0.0)
+            reason = str(obj.get("reason") or "").strip()
+            valid_ids = {str(hit.skill.skill_id or "").strip() for hit in hits}
+            if decision == "attach" and parent_skill_id in valid_ids:
+                return {
+                    "decision": "attach",
+                    "parent_skill_id": parent_skill_id,
+                    "confidence": confidence,
+                    "reason": reason or "llm hierarchy attachment",
+                }
+        except Exception as exc:
+            fallback = self._classify_parent_link_fallback(child=child, hits=hits, base_reason="")
+            fallback["hierarchy_error"] = {
+                "stage": "hierarchy_parent_link",
+                "skill_id": str(child.skill_id or "").strip(),
+                "candidate_count": len(hits),
+                "allowed_parent_nodes": list(allowed_parent_nodes or []),
+                "error": str(exc),
+                "retry_attempts": int(getattr(exc, "autoskill_retry_attempts", 0) or 0),
+                "fallback_decision": str(fallback.get("decision") or "").strip(),
             }
+            return fallback
 
-        # Safe fallback: if there is exactly one candidate, or one clearly outranks the rest, use it.
+        return self._classify_parent_link_fallback(child=child, hits=hits, base_reason=reason)
+
+    def _classify_parent_link_fallback(
+        self,
+        *,
+        child: SkillSpec,
+        hits: Sequence[Any],
+        base_reason: str,
+    ) -> Dict[str, Any]:
+        """Applies the safe local parent-link fallback used after LLM failure or ambiguity."""
+
         if len(hits) == 1 and _plausible_parent_candidate(child, hits[0].skill, score=float(hits[0].score or 0.0)):
             return {
                 "decision": "attach",
                 "parent_skill_id": str(hits[0].skill.skill_id or "").strip(),
-                "confidence": max(confidence, 0.6),
-                "reason": reason or "single eligible parent candidate",
+                "confidence": 0.6,
+                "reason": base_reason or "single eligible parent candidate",
             }
         if (
             len(hits) >= 2
@@ -1023,16 +1599,17 @@ class VersionManager:
             return {
                 "decision": "attach",
                 "parent_skill_id": str(hits[0].skill.skill_id or "").strip(),
-                "confidence": max(confidence, 0.55),
-                "reason": reason or "top parent candidate clearly outranks remaining hits",
+                "confidence": 0.55,
+                "reason": base_reason or "top parent candidate clearly outranks remaining hits",
             }
-        return {"decision": "defer", "parent_skill_id": "", "confidence": 0.0, "reason": reason or "no confident parent"}
+        return {"decision": "defer", "parent_skill_id": "", "confidence": 0.0, "reason": base_reason or "no confident parent"}
 
     def link_hierarchy(
         self,
         *,
         skills: Sequence[SkillSpec],
         existing_skills: Sequence[SkillSpec],
+        error_sink: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[List[SkillSpec], List[SkillSpec]]:
         """Assigns parent-child links and returns current skills plus touched existing parents."""
 
@@ -1086,6 +1663,20 @@ class VersionManager:
                 parent_hits=hits,
                 allowed_parent_nodes=allowed_parent_nodes,
             )
+            hierarchy_error = linked.pop("hierarchy_error", None) if isinstance(linked, dict) else None
+            if isinstance(hierarchy_error, dict):
+                emit_stage_log(
+                    self.logger,
+                    (
+                        f"[register_versions] hierarchy_error skill={hierarchy_error.get('skill_id') or skill.skill_id} "
+                        f"candidate_count={hierarchy_error.get('candidate_count', 0)} "
+                        f"fallback_decision={hierarchy_error.get('fallback_decision') or linked.get('decision') or 'defer'} "
+                        f"retry_attempts={hierarchy_error.get('retry_attempts', 0)} "
+                        f"error={hierarchy_error.get('error') or ''}"
+                    ),
+                )
+                if error_sink is not None:
+                    error_sink.append(hierarchy_error)
             parent_skill_id = str(linked.get("parent_skill_id") or "").strip()
             confidence = clip_confidence(linked.get("confidence"), default=0.0)
             status = "linked" if parent_skill_id else "unresolved"
@@ -1250,9 +1841,9 @@ class VersionManager:
         primary_existing = existing_skills_by_id[matched_ids[0]]
         secondary_existing = [existing_skills_by_id[skill_id] for skill_id in matched_ids[1:]]
         next_version = self.create_new_version(current_version=primary_existing.version, action="merge")
-        merged_skill = _copy_skill(
-            skill,
-            skill_id=primary_existing.skill_id,
+        merged_skill = _skill_with_frozen_identity(
+            base=primary_existing,
+            content=skill,
             version=next_version,
             status=target_state,
             support_ids=list(primary_existing.support_ids or []) + list(skill.support_ids or []),
@@ -1413,6 +2004,329 @@ class VersionManager:
             "related_entity_ids": list(related_entity_ids or []),
         }
 
+    def _merge_duplicate_group_skill(
+        self,
+        *,
+        primary: SkillSpec,
+        secondary_skills: Sequence[SkillSpec],
+        support_by_id: Dict[str, SupportRecord],
+    ) -> SkillSpec:
+        """Builds one consolidated canonical skill without changing identity surface."""
+
+        secondary_list = [skill for skill in list(secondary_skills or []) if isinstance(skill, SkillSpec)]
+        merged_support_ids = _merge_text_lists(
+            list(primary.support_ids or []),
+            *[list(skill.support_ids or []) for skill in secondary_list],
+        )
+        merged_examples = _merge_examples(
+            list(primary.examples or []),
+            *[list(skill.examples or []) for skill in secondary_list],
+        )
+        prompt = _prompt_prefix_from_body(primary.skill_body)
+        if not prompt:
+            for skill in secondary_list:
+                prompt = _prompt_prefix_from_body(skill.skill_body)
+                if prompt:
+                    break
+        merged_payload = primary.to_dict()
+        merged_payload["support_ids"] = merged_support_ids
+        merged_payload["applicable_signals"] = _merge_text_lists(
+            list(primary.applicable_signals or []),
+            *[list(skill.applicable_signals or []) for skill in secondary_list],
+        )
+        merged_payload["contraindications"] = _merge_text_lists(
+            list(primary.contraindications or []),
+            *[list(skill.contraindications or []) for skill in secondary_list],
+        )
+        merged_payload["intervention_moves"] = _merge_text_lists(
+            list(primary.intervention_moves or []),
+            *[list(skill.intervention_moves or []) for skill in secondary_list],
+        )
+        merged_payload["triggers"] = _merge_text_lists(
+            list(primary.triggers or []),
+            *[list(skill.triggers or []) for skill in secondary_list],
+        )
+        merged_payload["workflow_steps"] = _merge_text_lists(
+            list(primary.workflow_steps or []),
+            *[list(skill.workflow_steps or []) for skill in secondary_list],
+        )
+        merged_payload["constraints"] = _merge_text_lists(
+            list(primary.constraints or []),
+            *[list(skill.constraints or []) for skill in secondary_list],
+        )
+        merged_payload["cautions"] = _merge_text_lists(
+            list(primary.cautions or []),
+            *[list(skill.cautions or []) for skill in secondary_list],
+        )
+        merged_payload["output_contract"] = _merge_text_lists(
+            list(primary.output_contract or []),
+            *[list(skill.output_contract or []) for skill in secondary_list],
+        )
+        merged_payload["tags"] = _merge_text_lists(
+            list(primary.tags or []),
+            *[list(skill.tags or []) for skill in secondary_list],
+        )
+        merged_payload["child_skill_ids"] = _merge_text_lists(
+            list(primary.child_skill_ids or []),
+            *[list(skill.child_skill_ids or []) for skill in secondary_list],
+        )
+        merged_payload["examples"] = [
+            {
+                "input": str(example.input or ""),
+                "output": str(example.output or ""),
+                "notes": str(example.notes or ""),
+            }
+            for example in merged_examples
+        ]
+        merged_payload["skill_body"] = _build_structured_prompt(
+            prompt=prompt,
+            objective=str(primary.objective or primary.description).strip(),
+            applicable_signals=list(merged_payload.get("applicable_signals") or []),
+            contraindications=list(merged_payload.get("contraindications") or []),
+            intervention_moves=list(merged_payload.get("intervention_moves") or []),
+            workflow_steps=list(merged_payload.get("workflow_steps") or []),
+            constraints=list(merged_payload.get("constraints") or []),
+            cautions=list(merged_payload.get("cautions") or []),
+            output_contract=list(merged_payload.get("output_contract") or []),
+            examples=merged_examples,
+        )
+        merged_metadata = dict(merged_payload.get("metadata") or {})
+        merged_metadata["merged_from_skill_ids"] = _merge_text_lists(
+            list(merged_metadata.get("merged_from_skill_ids") or []),
+            [skill.skill_id for skill in secondary_list],
+        )
+        merged_metadata["duplicate_consolidation_ids"] = [skill.skill_id for skill in secondary_list]
+        merged_metadata["support_summary"] = _support_summary_for_skill(
+            SkillSpec.from_dict({**merged_payload, "metadata": merged_metadata}),
+            support_by_id=support_by_id,
+        )
+        merged_source_drafts = _merge_text_lists(
+            list(merged_metadata.get("source_draft_ids") or []),
+            *[list((skill.metadata or {}).get("source_draft_ids") or []) for skill in secondary_list],
+        )
+        if merged_source_drafts:
+            merged_metadata["source_draft_ids"] = merged_source_drafts
+        merged_payload["metadata"] = merged_metadata
+        return SkillSpec.from_dict(merged_payload)
+
+    def consolidate_duplicate_skills(
+        self,
+        *,
+        result: VersionRegistrationResult,
+        existing_skills: Sequence[SkillSpec],
+        existing_supports: Sequence[SupportRecord],
+        target_state: VersionState,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> VersionRegistrationResult:
+        """Collapses same-level visible duplicates into one canonical skill before persistence."""
+
+        touched_scopes = {
+            _family_scope_key(skill, metadata=metadata)
+            for skill in list(result.skill_specs or []) + list(result.hierarchy_updates or [])
+            if isinstance(skill, SkillSpec)
+        }
+        if not touched_scopes:
+            return result
+
+        preexisting_by_id = {skill.skill_id: skill for skill in list(existing_skills or []) if isinstance(skill, SkillSpec)}
+        support_by_id = {support.support_id: support for support in list(existing_supports or []) if isinstance(support, SupportRecord)}
+        for support in list(result.support_records or []):
+            support_by_id[support.support_id] = support
+
+        effective_by_id: Dict[str, SkillSpec] = {}
+        for skill in list(existing_skills or []):
+            if (
+                isinstance(skill, SkillSpec)
+                and _family_scope_key(skill, metadata=metadata) in touched_scopes
+            ):
+                effective_by_id[skill.skill_id] = skill
+        for skill in list(result.skill_specs or []) + list(result.hierarchy_updates or []):
+            if (
+                isinstance(skill, SkillSpec)
+                and _family_scope_key(skill, metadata=metadata) in touched_scopes
+            ):
+                effective_by_id[skill.skill_id] = skill
+
+        groups: Dict[Tuple[str, str, str, str, str, int, str], List[SkillSpec]] = {}
+        for skill in effective_by_id.values():
+            if skill.status in {VersionState.DEPRECATED, VersionState.RETIRED}:
+                continue
+            group_key = _duplicate_group_key(skill, metadata=metadata)
+            if not group_key[-1]:
+                continue
+            groups.setdefault(group_key, []).append(skill)
+
+        duplicate_groups = {key: value for key, value in groups.items() if len(value) > 1}
+        if not duplicate_groups:
+            return result
+
+        current_result_ids = {
+            skill.skill_id
+            for skill in list(result.skill_specs or []) + list(result.hierarchy_updates or [])
+            if isinstance(skill, SkillSpec)
+        }
+        preexisting_ids = set(preexisting_by_id.keys())
+        remove_skill_ids: Set[str] = set()
+        remove_event_skill_ids: Set[str] = set()
+        replace_map: Dict[str, str] = {}
+        added_skill_specs: List[SkillSpec] = []
+        added_supports: List[SupportRecord] = []
+        added_lifecycles: List[SkillLifecycle] = []
+        added_change_logs: List[Dict[str, Any]] = []
+        added_version_history: List[Dict[str, Any]] = []
+        added_provenance_links: List[Dict[str, Any]] = []
+
+        for _, bucket in sorted(duplicate_groups.items(), key=lambda item: item[0]):
+            ordered = sorted(bucket, key=lambda skill: _duplicate_primary_sort_key(skill, preexisting_ids=preexisting_ids))
+            primary = ordered[0]
+            secondary_skills = ordered[1:]
+            secondary_ids = [skill.skill_id for skill in secondary_skills]
+            primary_in_result = primary.skill_id in current_result_ids
+            preexisting_secondary = [skill for skill in secondary_skills if skill.skill_id in preexisting_by_id]
+
+            for secondary in secondary_skills:
+                replace_map[secondary.skill_id] = primary.skill_id
+                if secondary.skill_id in current_result_ids:
+                    remove_skill_ids.add(secondary.skill_id)
+                    remove_event_skill_ids.add(secondary.skill_id)
+                for support_id in list(secondary.support_ids or []):
+                    support = support_by_id.get(str(support_id or "").strip())
+                    if support is None:
+                        continue
+                    rebound = _copy_support(support, skill_id=primary.skill_id)
+                    support_by_id[rebound.support_id] = rebound
+                    added_supports.append(rebound)
+
+            merged_primary = self._merge_duplicate_group_skill(
+                primary=primary,
+                secondary_skills=secondary_skills,
+                support_by_id=support_by_id,
+            )
+            if primary.skill_id in current_result_ids:
+                remove_skill_ids.add(primary.skill_id)
+            if primary.skill_id in preexisting_by_id and not primary_in_result and preexisting_secondary:
+                next_version = self.create_new_version(current_version=primary.version, action="merge")
+                merged_primary = _copy_skill(
+                    merged_primary,
+                    version=next_version,
+                    status=target_state,
+                    metadata_update={
+                        "change_action": "merge",
+                        "llm_reason": "local duplicate consolidation",
+                    },
+                )
+                provenance = {
+                    "entity_type": "skill",
+                    "entity_id": merged_primary.skill_id,
+                    "doc_ids": _doc_ids_from_support_ids(merged_primary.support_ids, support_by_id),
+                    "support_added": [
+                        support.support_id
+                        for support in added_supports
+                        if str(support.skill_id or "").strip() == merged_primary.skill_id
+                    ],
+                    "support_conflicts": _conflicting_support_ids(merged_primary.support_ids, support_by_id),
+                    "related_entity_ids": secondary_ids,
+                }
+                added_lifecycles.append(
+                    self.update_lifecycle(
+                        skill_id=merged_primary.skill_id,
+                        current_state=preexisting_by_id[merged_primary.skill_id].status,
+                        action="merge",
+                        target_state=target_state,
+                        metadata={"merged_from_skill_ids": secondary_ids, "llm_reason": "local duplicate consolidation"},
+                    )
+                )
+                added_change_logs.append(
+                    self._change_payload(
+                        entity_type="skill",
+                        entity_id=merged_primary.skill_id,
+                        action="merge",
+                        from_version=preexisting_by_id[merged_primary.skill_id].version,
+                        to_version=merged_primary.version,
+                        from_state=preexisting_by_id[merged_primary.skill_id].status.value,
+                        to_state=merged_primary.status.value,
+                        summary="local duplicate consolidation",
+                        provenance=provenance,
+                        related_entity_ids=secondary_ids,
+                    )
+                )
+                added_version_history.append(
+                    self._history_payload(
+                        entity_type="skill",
+                        entity_id=merged_primary.skill_id,
+                        version=merged_primary.version,
+                        action="merge",
+                        status=merged_primary.status,
+                        related_entity_ids=secondary_ids,
+                    )
+                )
+                added_provenance_links.append(provenance)
+            added_skill_specs.append(merged_primary)
+
+            for secondary in preexisting_secondary:
+                deprecated = self.mark_deprecated(
+                    skill=_copy_skill(secondary, support_ids=[]),
+                    reason="merged_into_other_skill",
+                    state=VersionState.DEPRECATED,
+                    related_ids=[merged_primary.skill_id],
+                )
+                added_skill_specs.append(deprecated["skill"])
+                added_lifecycles.append(deprecated["lifecycle"])
+                added_change_logs.append(deprecated["change_log"])
+                added_version_history.append(deprecated["version_history"])
+                added_provenance_links.append(deprecated["provenance_links"])
+
+            emit_stage_log(
+                self.logger,
+                f"[register_versions] consolidate_duplicates canonical={merged_primary.skill_id} absorbed={secondary_ids}",
+            )
+
+        result.skill_specs = [
+            _rewrite_skill_links(skill, replace_map=replace_map)
+            for skill in list(result.skill_specs or [])
+            if skill.skill_id not in remove_skill_ids
+        ]
+        result.hierarchy_updates = [
+            _rewrite_skill_links(skill, replace_map=replace_map)
+            for skill in list(result.hierarchy_updates or [])
+            if skill.skill_id not in remove_skill_ids
+        ]
+        result.skill_specs.extend([_rewrite_skill_links(skill, replace_map=replace_map) for skill in added_skill_specs])
+        result.support_records.extend(list(added_supports or []))
+        result.lifecycles = [
+            lifecycle
+            for lifecycle in list(result.lifecycles or [])
+            if str(lifecycle.skill_id or "").strip() not in remove_event_skill_ids
+        ] + list(added_lifecycles or [])
+        result.change_logs = [
+            payload
+            for payload in list(result.change_logs or [])
+            if str(payload.get("entity_id") or "").strip() not in remove_event_skill_ids
+        ] + list(added_change_logs or [])
+        result.version_history = [
+            payload
+            for payload in list(result.version_history or [])
+            if str(payload.get("entity_id") or "").strip() not in remove_event_skill_ids
+        ] + list(added_version_history or [])
+        result.provenance_links = [
+            payload
+            for payload in list(result.provenance_links or [])
+            if str(payload.get("entity_id") or "").strip() not in remove_event_skill_ids
+        ] + list(added_provenance_links or [])
+        deduped_skill_specs: Dict[str, SkillSpec] = {}
+        for skill in list(result.skill_specs or []):
+            deduped_skill_specs[f"{skill.skill_id}:{skill.status.value}"] = skill
+        result.skill_specs = list(deduped_skill_specs.values())
+        deduped_hierarchy_updates: Dict[str, SkillSpec] = {}
+        for skill in list(result.hierarchy_updates or []):
+            deduped_hierarchy_updates[f"{skill.skill_id}:{skill.status.value}"] = skill
+        result.hierarchy_updates = list(deduped_hierarchy_updates.values())
+        deduped_supports: Dict[str, SupportRecord] = {}
+        for support in list(result.support_records or []):
+            deduped_supports[support.support_id] = support
+        result.support_records = list(deduped_supports.values())
+        return result
+
     def _conflict_review(
         self,
         *,
@@ -1465,18 +2379,21 @@ class VersionManager:
         skills: Sequence[SkillSpec],
         support_records: Sequence[SupportRecord],
         target_state: VersionState,
+        intermediate_writer: Optional["IntermediateRunWriter"] = None,
     ) -> VersionRegistrationResult:
         """Reconciles one compiled batch against registry state."""
 
         result = VersionRegistrationResult(support_records=[], dry_run=False)
+        skills_list = list(skills or [])
         support_by_id = _support_lookup(self.registry, support_records)
         existing_skills = list(self.registry.list_skills())
         existing_skills_by_id = {skill.skill_id: skill for skill in existing_skills}
         retriever = self.retriever or build_document_skill_retriever()
         retriever.refresh(existing_skills)
 
+        cached_decisions = intermediate_writer.load_register_decisions() if intermediate_writer is not None else {}
         decisions: List[ChangeDecision] = []
-        total_skills = len(list(skills or []))
+        total_skills = len(skills_list)
         emit_stage_progress(
             self.progress_callback,
             {
@@ -1488,27 +2405,47 @@ class VersionManager:
                 "errors": 0,
             },
         )
-        for idx, skill in enumerate(list(skills or []), start=1):
-            hits = retriever.search(
-                skill,
-                limit=self.retrieval_limit,
-            )
-            retrieved_existing = [hit.skill for hit in list(hits or [])]
-            emit_stage_log(
-                self.logger,
-                (
-                    f"[register_versions] retrieve skill={skill.skill_id} "
-                    f"hits={len(retrieved_existing)} "
-                    f"names={summarize_names([item.name for item in retrieved_existing])}"
-                ),
-            )
-            decision = self.classify_change(
-                skill,
-                peer_skills=skills,
-                existing_skills=retrieved_existing,
-                support_by_id=support_by_id,
-            )
-            decisions.append(decision)
+        for idx, skill in enumerate(skills_list, start=1):
+            cached = cached_decisions.get(skill.skill_id)
+            if cached is not None:
+                decision = cached
+                decisions.append(decision)
+                emit_stage_log(
+                    self.logger,
+                    (
+                        f"[register_versions] classify_resume skill={skill.skill_id} "
+                        f"action={decision.action} "
+                        f"branch={decision.branch or '-'}"
+                    ),
+                )
+            else:
+                hits = retriever.search(
+                    skill,
+                    limit=self.retrieval_limit,
+                )
+                retrieved_existing = [hit.skill for hit in list(hits or [])]
+                emit_stage_log(
+                    self.logger,
+                    (
+                        f"[register_versions] retrieve skill={skill.skill_id} "
+                        f"hits={len(retrieved_existing)} "
+                        f"names={summarize_names([item.name for item in retrieved_existing])}"
+                    ),
+                )
+                decision = self.classify_change(
+                    skill,
+                    peer_skills=skills_list,
+                    existing_skills=retrieved_existing,
+                    support_by_id=support_by_id,
+                )
+                decisions.append(decision)
+                if intermediate_writer is not None:
+                    intermediate_writer.write_register_decision(
+                        decision,
+                        hits=len(retrieved_existing),
+                        branch=str(decision.branch or "").strip() or ("full" if retrieved_existing else "hits0"),
+                        total_skills=total_skills,
+                    )
             emit_stage_progress(
                 self.progress_callback,
                 {
@@ -1519,7 +2456,7 @@ class VersionManager:
                     "total_skills": total_skills,
                     "current_skill_id": str(skill.skill_id or "").strip(),
                     "current_name": str(skill.name or "").strip(),
-                    "hits": len(retrieved_existing),
+                    "hits": int(decision.hits or 0),
                     "action": str(decision.action or "").strip(),
                     "errors": len(list(result.errors or [])),
                 },
@@ -1728,9 +2665,9 @@ class VersionManager:
                 next_version = current_version
             bound_supports = [_copy_support(support, skill_id=existing_skill.skill_id) for support in incoming_supports]
             merged_support_ids = list(dict.fromkeys(list(existing_skill.support_ids or []) + [support.support_id for support in bound_supports]))
-            updated_skill = _copy_skill(
-                new_skill,
-                skill_id=existing_skill.skill_id,
+            updated_skill = _skill_with_frozen_identity(
+                base=existing_skill,
+                content=new_skill,
                 version=next_version,
                 status=(existing_skill.status if decision.action == "unchanged" else target_state),
                 support_ids=merged_support_ids,
@@ -1870,6 +2807,7 @@ def register_versions(
     dry_run: bool = False,
     target_state: VersionState = VersionState.ACTIVE,
     logger: StageLogger = None,
+    intermediate_writer: Optional["IntermediateRunWriter"] = None,
     progress_callback: StageProgressCallback = None,
     retrieval_score_threshold: float = DEFAULT_RETRIEVAL_SCORE_THRESHOLD,
     llm_rate_limit_requests: int = DEFAULT_LLM_RATE_LIMIT_REQUESTS,
@@ -1882,12 +2820,56 @@ def register_versions(
     effective_state = VersionState.DRAFT if dry_run else target_state
     preexisting_skills = list(registry.list_skills())
     llm_config = dict(getattr(getattr(sdk, "config", None), "llm", {}) or {"provider": "mock"})
+
+    raw_base_llm = llm or build_llm(dict(llm_config))
+    raw_hits0_change_llm, raw_full_change_llm = _resolve_change_decision_llms(
+        sdk=sdk,
+        fallback_llm=raw_base_llm,
+    )
+    raw_hierarchy_link_llm = _resolve_hierarchy_link_llm(
+        sdk=sdk,
+        fallback_llm=raw_base_llm,
+    )
+
     llm_impl = maybe_wrap_llm_with_rate_limit(
-        llm or build_llm(dict(llm_config)),
+        raw_base_llm,
         max_requests=llm_rate_limit_requests,
         window_s=llm_rate_limit_window_s,
         llm_config=llm_config,
         scope=AUTOSKILL4DOC_LLM_SCOPE,
+    )
+    hits0_change_llm = (
+        llm_impl
+        if raw_hits0_change_llm is raw_base_llm
+        else maybe_wrap_llm_with_rate_limit(
+            raw_hits0_change_llm,
+            max_requests=llm_rate_limit_requests,
+            window_s=llm_rate_limit_window_s,
+            llm_config=_register_change_decision_llm_config(llm_config, hits0_branch=True),
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
+    )
+    full_change_llm = (
+        llm_impl
+        if raw_full_change_llm is raw_base_llm
+        else maybe_wrap_llm_with_rate_limit(
+            raw_full_change_llm,
+            max_requests=llm_rate_limit_requests,
+            window_s=llm_rate_limit_window_s,
+            llm_config=_register_change_decision_llm_config(llm_config, hits0_branch=False),
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
+    )
+    hierarchy_link_llm = (
+        llm_impl
+        if raw_hierarchy_link_llm is raw_base_llm
+        else maybe_wrap_llm_with_rate_limit(
+            raw_hierarchy_link_llm,
+            max_requests=llm_rate_limit_requests,
+            window_s=llm_rate_limit_window_s,
+            llm_config=_register_hierarchy_llm_config(llm_config),
+            scope=AUTOSKILL4DOC_LLM_SCOPE,
+        )
     )
     sdk_config = getattr(sdk, "config", None)
     embeddings_config = dict(getattr(sdk_config, "embeddings", {}) or {"provider": "hashing", "dims": 256})
@@ -1902,6 +2884,9 @@ def register_versions(
     manager = VersionManager(
         registry=registry,
         llm=llm_impl,
+        hits0_change_llm=hits0_change_llm,
+        full_change_llm=full_change_llm,
+        hierarchy_link_llm=hierarchy_link_llm,
         retriever=retriever,
         retrieval_limit=DEFAULT_RETRIEVAL_LIMIT,
         logger=logger,
@@ -1911,11 +2896,20 @@ def register_versions(
         skills=skill_specs,
         support_records=support_records,
         target_state=effective_state,
+        intermediate_writer=intermediate_writer,
     )
     reconciled.skill_specs = [_merge_layout_metadata(skill, metadata=metadata) for skill in list(reconciled.skill_specs or [])]
     reconciled.skill_specs, reconciled.hierarchy_updates = manager.link_hierarchy(
         skills=reconciled.skill_specs,
         existing_skills=preexisting_skills,
+        error_sink=reconciled.errors,
+    )
+    reconciled = manager.consolidate_duplicate_skills(
+        result=reconciled,
+        existing_skills=preexisting_skills,
+        existing_supports=list(registry.list_supports()),
+        target_state=effective_state,
+        metadata=metadata,
     )
     emit_stage_progress(
         progress_callback,
