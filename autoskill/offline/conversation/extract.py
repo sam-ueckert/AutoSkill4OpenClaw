@@ -32,6 +32,25 @@ from ..provider_config import (
     build_llm_config as _build_provider_llm_config,
     pick_default_provider as _pick_default_provider,
 )
+from .utils.ban_mock import ensure_llm_config_not_mock, ensure_not_mock
+
+
+def _normalize_extract_mode(mode: Any) -> str:
+    """Normalize extract prompt mode."""
+    s = str(mode or "").strip().lower()
+    if not s:
+        return "specific"
+    if s not in {"common", "specific"}:
+        raise ValueError(f"extract_mode must be one of: common, specific (got {mode!r})")
+    return s
+
+
+def _offline_extract_channel(*, extract_mode: Any) -> str:
+    """Build offline extract prompt channel with optional mode suffix."""
+    mode = _normalize_extract_mode(extract_mode)
+    if mode == "specific":
+        return "offline_extract_from_conversation"
+    return f"offline_extract_from_conversation:{mode}"
 
 
 def extract_from_conversation(
@@ -46,6 +65,7 @@ def extract_from_conversation(
     max_messages_per_conversation: int = 0,
     max_workers: int = 0,
     progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    extract_mode: str = "specific",
 ) -> Dict[str, Any]:
     """
     Runs offline extraction from archived OpenAI-format conversations.
@@ -64,9 +84,10 @@ def extract_from_conversation(
         }
 
     user = str(user_id or "").strip() or "u1"
+    channel = _offline_extract_channel(extract_mode=extract_mode)
     limit_msgs = max(0, int(max_messages_per_conversation or 0))
     base_md = dict(metadata or {})
-    base_md.setdefault("channel", "offline_extract_from_conversation")
+    base_md.setdefault("channel", channel)
     base_md.setdefault("source_type", "conversation")
     if abs_input:
         base_md.setdefault("source_file", abs_input)
@@ -87,7 +108,7 @@ def extract_from_conversation(
     worker_count = _resolve_max_workers(max_workers=max_workers, total_units=len(units))
     unit_infos = [_unit_info(unit=unit, index=idx) for idx, unit in enumerate(units)]
 
-    with activate_offline_prompt_runtime(sdk=sdk, channel="offline_extract_from_conversation"):
+    with activate_offline_prompt_runtime(sdk=sdk, channel=channel):
         # Parallelize LLM-bound extraction work, but keep apply/merge serial and ordered.
         # This preserves deterministic merge/version behavior for the local skill bank.
         prepared_by_index: Dict[int, Dict[str, Any]] = {}
@@ -547,9 +568,11 @@ def _parse_bool_text(v: Any, default: bool) -> bool:
 
 def _build_llm_config(args: argparse.Namespace) -> Dict[str, Any]:
     """Run build llm config."""
-    provider = str(args.llm_provider or "mock").strip() or "mock"
+    provider = str(args.llm_provider or _pick_default_provider()).strip() or "mock"
+    ensure_not_mock(provider, where="extract:_build_llm_config(provider)")
     model = str(args.llm_model or "").strip() or None
     cfg = _build_provider_llm_config(provider, model=model)
+    ensure_llm_config_not_mock(cfg, where="extract:_build_llm_config(cfg)")
     if str(args.llm_base_url or "").strip():
         cfg["base_url"] = str(args.llm_base_url).strip()
     if str(args.llm_api_key or "").strip():
@@ -611,6 +634,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--file", required=True, help="Path to an OpenAI-format .json/.jsonl file or directory.")
     parser.add_argument("--user-id", default="u1", help="Target user id.")
     parser.add_argument("--hint", default="", help="Optional extraction hint.")
+    parser.add_argument(
+        "--extract-mode",
+        default=_env("AUTOSKILL_OFFLINE_EXTRACT_MODE", "common"),
+        help="Prompt mode for extract stage: common|specific. Default specific.",
+    )
     parser.add_argument("--max-messages-per-conversation", type=int, default=0, help="0 means no clipping.")
     parser.add_argument(
         "--max-workers",
@@ -662,21 +690,19 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     """Run main."""
     args = build_parser().parse_args()
+    extract_mode = _normalize_extract_mode(getattr(args, "extract_mode", "specific"))
     sdk = _build_sdk_from_args(args)
     llm_provider = str(((getattr(sdk, "config", None) or AutoSkillConfig()).llm or {}).get("provider") or "mock")
     llm_model = str(((getattr(sdk, "config", None) or AutoSkillConfig()).llm or {}).get("model") or "")
+    ensure_not_mock(llm_provider, where="extract:main(sdk.config.llm.provider)")
     print(
         f"[config] llm_provider={llm_provider} "
         f"llm_model={llm_model or '-'} "
+        f"extract_mode={extract_mode} "
         f"max_workers={int(args.max_workers or 0)} "
         f"strict_llm_errors={_parse_bool_text(args.strict_llm_errors, True)}",
         flush=True,
     )
-    if str(llm_provider).strip().lower() == "mock":
-        print(
-            "[warning] mock LLM provider is active. Offline extraction will not use a real model and may produce poor or empty skill results.",
-            flush=True,
-        )
 
     def _on_progress(evt: Dict[str, Any]) -> None:
         """Run on progress."""
@@ -710,8 +736,9 @@ def main() -> None:
         continue_on_error=True,
         max_messages_per_conversation=int(args.max_messages_per_conversation or 0),
         max_workers=int(args.max_workers or 0),
-        metadata={"channel": "offline_extract_from_conversation"},
+        metadata={"channel": _offline_extract_channel(extract_mode=extract_mode)},
         progress_callback=_on_progress,
+        extract_mode=extract_mode,
     )
 
     print("Offline conversation extraction completed.")

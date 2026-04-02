@@ -10,15 +10,34 @@ from typing import Optional
 
 
 OFFLINE_CHANNEL_CONV = "offline_extract_from_conversation"
+EXTRACT_MODE_SPECIFIC = "specific"
+EXTRACT_MODE_COMMON = "common"
 
 
 def is_offline_channel(channel: str) -> bool:
     """Run is offline channel."""
-    return str(channel or "").strip().lower() == OFFLINE_CHANNEL_CONV
+    base, _mode = parse_offline_channel(channel)
+    return base == OFFLINE_CHANNEL_CONV
 
 
-def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
-    """Run build offline extract prompt."""
+def parse_offline_channel(channel: str) -> tuple[str, str]:
+    """Parse offline channel and optional extract mode suffix."""
+    raw = str(channel or "").strip().lower()
+    if not raw:
+        return "", EXTRACT_MODE_SPECIFIC
+    if raw == OFFLINE_CHANNEL_CONV:
+        return OFFLINE_CHANNEL_CONV, EXTRACT_MODE_SPECIFIC
+    prefix = OFFLINE_CHANNEL_CONV + ":"
+    if raw.startswith(prefix):
+        mode = raw[len(prefix) :].strip().lower() or EXTRACT_MODE_SPECIFIC
+        if mode not in {EXTRACT_MODE_COMMON, EXTRACT_MODE_SPECIFIC}:
+            mode = EXTRACT_MODE_SPECIFIC
+        return OFFLINE_CHANNEL_CONV, mode
+    return raw, EXTRACT_MODE_SPECIFIC
+
+
+def build_offline_extract_prompt_common(*, channel: str, max_candidates: int) -> str:
+    """Run build offline extract prompt in common mode."""
     if not is_offline_channel(channel):
         return ""
     return (
@@ -31,8 +50,6 @@ def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
         "Extract a skill only when the USER gives concrete, reusable execution requirements. A single turn is sufficient if it contains a clear reusable instruction set.\n"
         "Do not require multiple turns, repeated corrections, or phrases like 'from now on'.\n"
         "Do not extract when the USER only wants a one-off result without reusable requirements.\n\n"
-        "Prefer a narrow, single job-to-be-done skill over a broad omnibus skill that mixes adjacent tasks.\n\n"
-        "Prefer extraction only when the resulting skill is likely to be reused by this same user in future similar tasks.\n\n"
 
         "### 1) Evidence, Provenance, and Scope\n"
         "1. Input Priority Contract: The input is structured into 'Primary User Questions (main evidence)' and 'Full Conversation (context reference)'. Always prioritize the primary section, focus on USER inputs there, and use the full section only for context or disambiguation.\n"
@@ -59,8 +76,7 @@ def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
         "B. Generic requests like 'optimize this', 'rewrite this', 'expand this', 'summarize this', or 'make it better' without concrete reusable rules.\n"
         "C. Local editing of current content only, where the user wants a better result but defines no reusable execution policy.\n"
         "D. Topic facts, business facts, named entities, event details, or content payload specific to this instance.\n"
-        "E. Assistant-authored structure or logic not explicitly required by the user.\n"
-        "F. Constraints that are technically reusable but have low expected repeat-use value for this same user.\n\n"
+        "E. Assistant-authored structure or logic not explicitly required by the user.\n\n"
 
         "### 4) Task Boundary, Reusability, and Generalization\n"
         "1. Do not use turn count, repetition count, or number of corrections as the extraction threshold. Single-turn conversations can produce a skill; multi-turn conversations should still return {\"skills\": []} if they only contain iterative content work without reusable requirements.\n"
@@ -68,8 +84,7 @@ def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
         "3. Use recency and topic continuity only to determine task boundary, not as proof that a skill exists.\n"
         "4. Extract only requirements that still make sense on similar future inputs after removing current instance facts. If the proposed skill stops making sense once you remove company names, product names, people, dates, venues, campaign facts, or document payload, output {\"skills\": []}.\n"
         "5. Domain-specific skills are allowed, but entity-specific or event-specific skills are not, unless the user explicitly requested a reusable specialized assistant for that exact domain specialization.\n"
-        "6. Treat names of companies, products, projects, technologies, dates, venues, cities, campaigns, article sections, partner names, and business facts as runtime payload by default. Do not upgrade them into reusable rules, triggers, tags, or prompt instructions unless the user explicitly presents them as template-level requirements. Keep only the reusable task logic, not the case facts.\n"
-        "7. Repeat-use check: after de-identification, if this same user is unlikely to reuse the extracted policy/workflow in nearby future tasks, output {\"skills\": []}.\n\n"
+        "6. Treat names of companies, products, projects, technologies, dates, venues, cities, campaigns, article sections, partner names, and business facts as runtime payload by default. Do not upgrade them into reusable rules, triggers, tags, or prompt instructions unless the user explicitly presents them as template-level requirements. Keep only the reusable task logic, not the case facts.\n\n"
 
         "### 5) No Invention Rule\n"
         "Extract only what is directly supported by USER evidence.\n"
@@ -80,27 +95,17 @@ def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
         "### 6) Output Construction Rules\n"
         f"Return JSON as {{\"skills\": [...]}} with at most {max_candidates} item(s).\n"
         "Fields per skill:\n"
-        "- name: concise, searchable, and self-explanatory intent+task phrase in the SAME language as the conversation. It should directly express reusable capability (not one-off topic facts) and avoid vague placeholders.\n"
+        "- name: concise, searchable intent+task phrase in the SAME language as the conversation. It should describe reusable capability, not one-off topic facts.\n"
         "- description: 1-2 sentences describing WHAT the reusable skill does and WHEN it should be used. Avoid case-specific facts.\n"
         "- prompt: strict Markdown system prompt containing only reusable user-evidenced requirements. It MUST include:\n"
-        "    - # Role & Objective\n"
-        "    - # Communication & Style Preferences\n"
-        "    - # Operational Rules & Constraints\n"
-        "    - # Anti-Patterns\n"
-        "    - # Interaction Workflow (optional, only if explicitly evidenced by USER)\n"
-        "    - Keep prompt focused on the core instructions needed on every run; avoid stuffing long reference material into the prompt.\n"
+        " - # Role & Objective\n"
+        " - # Communication & Style Preferences\n"
+        " - # Operational Rules & Constraints\n"
+        " - # Anti-Patterns\n"
+        " - # Interaction Workflow (optional, only if explicitly evidenced by USER)\n"
         "- triggers: 3-5 deduplicated intent phrases that would activate this skill. They must reflect reusable task requests, not one-off entities.\n"
         "- tags: 1-6 canonical keywords in the SAME language as the conversation. Prefer task or domain words over entity names.\n"
         "- examples: 0-2 short, de-identified examples showing the task shape. Do not introduce new facts.\n"
-        "- optional resources/files: include only when the USER evidence implies durable bundled artifacts that should live with the skill.\n"
-        "    - resources shape: {\"scripts\": [...], \"references\": [...], \"assets\": [...]}.\n"
-        "    - files shape: {\"scripts/...\": \"...\", \"references/...\": \"...\", \"assets/...\": \"...\"}.\n"
-        "    - scripts: only for stable deterministic helpers repeatedly useful for this workflow.\n"
-        "    - references: only for longer reusable guidance, checklists, schemas, or domain notes directly evidenced by the USER.\n"
-        "    - assets: only for reusable output templates, placeholders, or small sample artifacts, not large raw payloads.\n"
-        "    - use safe relative paths under scripts/, references/, or assets/ and keep file content concise.\n"
-        "    - if a resource is emitted, the prompt should mention when to read or run it.\n"
-        "    - do not duplicate the same long material in both prompt and resources.\n"
         "- confidence: float between 0.0 and 1.0, based on how specific and reusable the USER requirements are.\n\n"
 
         "### 7) Confidence Guidance\n"
@@ -115,7 +120,6 @@ def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
         "2. Would the extracted behavior still be useful on similar future inputs?\n"
         "3. Are the major rules traceable to USER turns only?\n"
         "4. Did you avoid copying case-specific facts into reusable rules?\n"
-        "5. Is this likely to be reused by this same user in future similar tasks?\n"
         "If any answer is NO, output {\"skills\": []}.\n\n"
 
         "### 9) Language Consistency\n"
@@ -123,10 +127,174 @@ def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
         "If dominant language is unclear, return {\"skills\": []}.\n\n"
 
         "### JSON Validity Rules\n"
-        "- Escape all newlines within string values as \\n.\n"
+        "- Escape all newlines within string values as \\\\n.\n"
         "- Escape double quotes within string values properly.\n"
-        "- Do not wrap the output in Markdown code blocks. Return raw JSON string ONLY.\n"
+        "- Do not wrap the output in Markdown code blocks.\n"
+        "Return raw JSON string ONLY.\n"
     )
+
+
+def build_offline_extract_prompt_specific(*, channel: str, max_candidates: int) -> str:
+    """Run build offline extract prompt in specific mode."""
+    if not is_offline_channel(channel):
+        return ""
+    return (
+        "You are the Specific-Requirement Skill Extractor for the AutoSkill framework.\n"
+        "Your task is to analyze archived conversations and extract reusable, executable skills from user instructions.\n"
+        "The key criterion is not turn count, but whether the USER provides specific, reusable requirements such as rules, constraints, schemas, workflows, or output contracts.\n"
+        "Output ONLY strict JSON parseable by `json.loads`.\n\n"
+
+        "### Core Principle\n"
+        "Extract a skill only when the USER gives concrete, reusable execution requirements that define a stable way of handling similar future tasks. A single turn is sufficient if it contains a clear reusable instruction set.\n"
+        "Do not require multiple turns, repeated corrections, or phrases like 'from now on'.\n"
+        "Do not extract when the USER only wants a one-off result without reusable requirements.\n"
+        "Prefer a narrow, single job-to-be-done skill over a broad omnibus skill that mixes adjacent tasks.\n"
+        "Prefer extraction only when the resulting skill is likely to be reused by this same user in future similar tasks.\n\n"
+        "A skill should look more like:\n"
+        "1. a stable handling policy for similar future tasks\n"
+        "2. a durable output contract\n"
+        "3. a repeatable workflow or SOP\n"
+        "4. a persistent behavioral preference the user wants the assistant to keep\n\n"
+        "A skill should not be treated as:\n"
+        "1. detailed parameters for only the current task\n"
+        "2. one-time delivery instructions\n"
+        "3. a generic capability invocation\n"
+        "4. local constraints that matter only for the current instance\n\n"
+        "Default conservatively: it is better to miss a one-off high-constraint task than to incorrectly save a generic capability call as a long-term skill.\n\n"
+
+        "### 1) Evidence, Provenance, and Scope\n"
+        "1. Input Priority Contract: The input is structured into 'Primary User Questions (main evidence)' and 'Full Conversation (context reference)'. Always prioritize the primary section, focus on USER inputs there, and use the full section only for context or disambiguation.\n"
+        "2. USER turns are the only valid evidence for skill content.\n"
+        "3. ASSISTANT replies may be used only to identify turn boundaries or whether the user accepted or rejected something; assistant text is never direct skill evidence.\n"
+        "4. Do not extract any rule, structure, terminology, workflow, or constraint that appears only in assistant output.\n"
+        "5. If user and assistant conflict, follow the user.\n"
+        "6. Weak acknowledgements like 'ok', '继续', '知道了', or 'sounds good' do not validate assistant-invented details.\n"
+        "7. Every major extracted rule must be traceable to USER evidence; if provenance is unclear, drop it.\n\n"
+
+        "### 2) What Counts as Strong Extraction Evidence\n"
+        "Extract when the USER provides one or more reusable requirements such as:\n"
+        "1. a clear role or persona tied to a repeatable task\n"
+        "2. a fixed output format, schema, JSON structure, field list, template, or table contract\n"
+        "3. deterministic parsing, mapping, classification, validation, default, fallback, or calculation logic\n"
+        "4. explicit must-do or must-not-do constraints for similar tasks\n"
+        "5. a reusable workflow or SOP\n"
+        "6. a stable writing, coding, analysis, or extraction policy specific enough to execute repeatedly\n"
+        "7. stable quality criteria, selection criteria, or ranking criteria intended to apply across future similar tasks\n\n"
+        "A single strong item can be sufficient if it is reusable.\n\n"
+
+        "### 3) What Does NOT Count as a Skill\n"
+        "Do not extract for the following unless the USER also provides reusable requirements with durable value for future similar tasks:\n"
+        "1. one-off factual Q&A\n"
+        "2. generic requests like 'optimize this', 'rewrite this', 'expand this', 'summarize this', or 'make it better' without concrete reusable rules\n"
+        "3. local editing of current content only, where the user wants a better result but defines no reusable execution policy\n"
+        "4. topic facts, business facts, named entities, event details, or content payload specific to this instance\n"
+        "5. assistant-authored structure or logic not explicitly required by the user\n"
+        "6. constraints that are technically reusable but have low expected repeat-use value for this same user\n"
+        "7. statements of desired outcome without executable method, such as 'make it more natural', 'make it more academic', 'make it clearer', 'make it more compelling', or 'make the code work'\n"
+        "8. generic capability use for the current task, even if the USER adds a few local constraints\n\n"
+
+        "### 4) Cases That Usually Still Should NOT Be Extracted Even If Requirements Look Clear\n"
+        "The following usually should still return `{\"skills\": []}` unless the USER clearly elevates them into a stable reusable protocol for future similar tasks:\n\n"
+        "1. Generic debugging, coding, scripting, or data-processing requests\n"
+        "   - Examples include fixing current code, writing a script for current data, analyzing a current table, cleaning a current file, or explaining a current error.\n"
+        "   - These are usually instance-level problem solving, not long-term skills.\n"
+        "   - Extract only if the USER clearly defines a reusable method, stable output contract, repeatable workflow, or persistent preference intended for future similar requests.\n\n"
+        "2. Ordinary translation tasks\n"
+        "   - Even if the USER asks for faithfulness, natural phrasing, terminology preservation, bilingual output, or sentence-by-sentence translation, these are often only local task parameters.\n"
+        "   - Extract only if the USER defines a stable translation protocol intended to apply across future translation tasks.\n\n"
+        "3. Parameterized batch generation\n"
+        "   - Examples include generating many titles for a book, many selling points for a product, many summaries for an article, or many captions for a topic.\n"
+        "   - If the request mainly swaps entities, materials, or topics without defining stable structure rules, selection criteria, quality criteria, style protocol, or decision logic, do not extract.\n\n"
+        "4. Repeated request phrasing without stable execution rules\n"
+        "   - Reusing the same sentence pattern across different books, products, files, or topics does not by itself prove a skill exists.\n"
+        "   - Repetition alone is not evidence. Only repeated use backed by stable execution rules may count.\n\n"
+        "5. One-time delivery parameters\n"
+        "   - Quantity, word count, output language, whether to include code/table/JSON, brevity, formality, or platform-specific formatting should not be extracted if they only serve the current delivery.\n\n"
+        "6. Requests that depend on current payload to make sense\n"
+        "   - If the supposed skill stops making sense once current code, current data, current article, current book, current project, or current entities are removed, do not extract.\n\n"
+        "7. High-frequency tasks without a stable user-defined method\n"
+        "   - A user doing similar tasks often does not imply a skill exists.\n"
+        "   - Frequency is not evidence unless the USER also defines durable, transferable execution requirements.\n\n"
+
+        "### 5) Task Boundary, Reusability, and Generalization\n"
+        "1. Do not use turn count, repetition count, or number of corrections as the extraction threshold. Single-turn conversations can produce a skill; multi-turn conversations should still return `{\"skills\": []}` if they only contain iterative content work without reusable requirements.\n"
+        "2. Use the most recent USER turns to identify the active task. If a later USER turn introduces a materially new objective, deliverable, audience, or operation class, treat it as a new task boundary. Extract only from the final active task and do not mix requirements from different tasks.\n"
+        "3. Use recency and topic continuity only to determine task boundary, not as proof that a skill exists.\n"
+        "4. Extract only requirements that still make sense on similar future inputs after removing current instance facts. If the proposed skill stops making sense once you remove company names, product names, people, dates, venues, campaign facts, or document payload, output `{\"skills\": []}`.\n"
+        "5. Domain-specific skills are allowed, but entity-specific or event-specific skills are not, unless the user explicitly requested a reusable specialized assistant for that exact domain specialization.\n"
+        "6. Treat names of companies, products, projects, technologies, dates, venues, cities, campaigns, article sections, partner names, and business facts as runtime payload by default. Do not upgrade them into reusable rules, triggers, tags, or prompt instructions unless the user explicitly presents them as template-level requirements. Keep only the reusable task logic, not the case facts.\n"
+        "7. Repeat-use check: after de-identification, if this same user is unlikely to reuse the extracted policy/workflow in nearby future tasks, output `{\"skills\": []}`.\n"
+        "8. Do not confuse a frequent task category with a skill. A user often doing something does not mean the user has defined a stable reusable protocol for it.\n\n"
+
+        "### 6) No Invention Rule\n"
+        "Extract only what is directly supported by USER evidence.\n"
+        "Do not invent workflow, section ordering, terminology policy, scoring criteria, thresholds, regulations, or technical explanations.\n"
+        "If the user gives constraints but no workflow, do not invent a workflow.\n"
+        "If the user gives format but no additional style policy, do not fabricate one.\n"
+        "If the user repeatedly invokes a generic capability without defining a stable method, do not upgrade it into a skill.\n\n"
+
+        "### 7) Output Construction Rules\n"
+        f"Return JSON as {{\"skills\": [...]}} with at most {max_candidates} item(s).\n"
+        "Fields per skill:\n"
+        "- name: concise, searchable, and self-explanatory intent+task phrase in the SAME language as the conversation. It should directly express reusable capability, not one-off topic facts, and should avoid vague placeholders.\n"
+        "- description: 1-2 sentences describing WHAT the reusable skill does and WHEN it should be used. Avoid case-specific facts.\n"
+        "- prompt: strict Markdown system prompt containing only reusable user-evidenced requirements. It MUST include:\n"
+        "  - # Role & Objective\n"
+        "  - # Communication & Style Preferences\n"
+        "  - # Operational Rules & Constraints\n"
+        "  - # Anti-Patterns\n"
+        "  - # Interaction Workflow (optional, only if explicitly evidenced by USER)\n"
+        "  - Keep the prompt focused on the core instructions needed on every run; avoid stuffing long reference material into the prompt.\n"
+        "- triggers: 3-5 deduplicated intent phrases that would activate this skill. They must reflect reusable task requests, not one-off entities.\n"
+        "- tags: 1-6 canonical keywords in the SAME language as the conversation. Prefer task or domain words over entity names.\n"
+        "- examples: 0-2 short, de-identified examples showing the task shape. Do not introduce new facts.\n"
+        "- optional resources/files: include only when the USER evidence implies durable bundled artifacts that should live with the skill.\n"
+        "  - resources shape: `{\"scripts\": [...], \"references\": [...], \"assets\": [...]}`\n"
+        "  - files shape: `{\"scripts/...\": \"...\", \"references/...\": \"...\", \"assets/...\": \"...\"}`\n"
+        "  - scripts: only for stable deterministic helpers repeatedly useful for this workflow\n"
+        "  - references: only for longer reusable guidance, checklists, schemas, or domain notes directly evidenced by the USER\n"
+        "  - assets: only for reusable output templates, placeholders, or small sample artifacts, not large raw payloads\n"
+        "  - use safe relative paths under `scripts/`, `references/`, or `assets/` and keep file content concise\n"
+        "  - if a resource is emitted, the prompt should mention when to read or run it\n"
+        "  - do not duplicate the same long material in both prompt and resources\n"
+        "- confidence: float between 0.0 and 1.0, based on how specific and reusable the USER requirements are\n\n"
+
+        "### 8) Confidence Guidance\n"
+        "Use high confidence when the USER provides explicit schema, field definitions, mapping rules, calculation logic, strict output constraints, or a detailed SOP, and these clearly appear intended for future similar tasks.\n"
+        "Use medium confidence when the USER provides a clear but lighter reusable policy with plausible future reuse value.\n"
+        "Use low confidence only when the signal is weak but still specific enough to extract and does not look like mere instance-level delivery parameters.\n"
+        "If requirements are not specific enough to execute repeatedly, or look more like current-task parameters than a durable protocol, output `{\"skills\": []}`.\n\n"
+
+        "### 9) Final Emission Check\n"
+        "Before emitting a skill, verify all of the following:\n"
+        "1. Does the USER provide concrete execution requirements rather than only asking for an end result?\n"
+        "2. Are these requirements defining a stable handling policy for future similar tasks rather than only current-task delivery parameters?\n"
+        "3. Would the extracted behavior still be useful on similar future inputs?\n"
+        "4. Are the major rules traceable to USER turns only?\n"
+        "5. Did you avoid copying case-specific facts into reusable rules?\n"
+        "6. Is this likely to be reused by this same user in future similar tasks?\n"
+        "7. Is this merely a generic capability call such as debugging, coding, data processing, translation, or batch content generation, without a stable user-defined method?\n"
+        "8. Is the USER doing more than reusing the same request sentence with different entities or materials?\n"
+        "If any answer is NO, output `{\"skills\": []}`.\n\n"
+
+        "### 10) Language Consistency\n"
+        "Determine one dominant language from USER text and use it consistently for all textual fields.\n"
+        "If dominant language is unclear, return `{\"skills\": []}`.\n\n"
+
+        "### JSON Validity Rules\n"
+        "- Escape all newlines within string values as `\\n`.\n"
+        "- Escape double quotes within string values properly.\n"
+        "- Do not wrap the output in Markdown code blocks.\n"
+        "- Return raw JSON string ONLY.\n"
+    )
+
+
+def build_offline_extract_prompt(*, channel: str, max_candidates: int) -> str:
+    """Backward-compatible extract prompt dispatcher."""
+    _base, mode = parse_offline_channel(channel)
+    if mode == EXTRACT_MODE_COMMON:
+        return build_offline_extract_prompt_common(channel=channel, max_candidates=max_candidates)
+    return build_offline_extract_prompt_specific(channel=channel, max_candidates=max_candidates)
 
 
 def build_offline_repair_prompt(*, channel: str, max_candidates: int) -> str:
