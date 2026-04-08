@@ -48,6 +48,13 @@
             "default": 20,
             "description": "Auto-close a long-lived embedded session after N turns when session_id never changes. 0 disables."
           },
+          "liveExtractEveryTurns": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 5,
+            "description": "Run one live embedded extraction/maintenance pass every N turns for an active session without waiting for session end. 0 disables."
+          },
           "skillBankDir": {
             "type": "string",
             "default": "",

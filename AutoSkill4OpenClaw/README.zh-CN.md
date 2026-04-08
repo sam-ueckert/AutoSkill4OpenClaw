@@ -122,7 +122,8 @@ python3 AutoSkill4OpenClaw/install.py \
             "skillBankDir": "~/.openclaw/autoskill/SkillBank",
             "openclawSkillsDir": "~/.openclaw/workspace/skills",
             "sessionArchiveDir": "~/.openclaw/autoskill/embedded_sessions",
-            "sessionMaxTurns": 20
+            "sessionMaxTurns": 20,
+            "liveExtractEveryTurns": 5
           }
         }
       }
@@ -131,7 +132,7 @@ python3 AutoSkill4OpenClaw/install.py \
 }
 ```
 
-`embedded.sessionMaxTurns` 默认是 `20`。如果一个 session 很长、`session_id` 一直不变，AutoSkill 会在本地把这段会话按 20 个 turn 自动收口一次，并触发一轮抽取/维护，而不是无限等待。若你只想严格依赖 `session_done`、session 切换或 idle-timeout，再把它设成 `0`。
+`embedded.liveExtractEveryTurns` 默认是 `5`。AutoSkill 现在会对活跃中的 embedded session 每 5 个 turn 做一次实时抽取/维护，不需要等到整段会话结束才产出技能。`embedded.sessionMaxTurns` 仍默认 `20`，作为长会话兜底：如果一个 session 很长、`session_id` 一直不变，AutoSkill 会在本地把这段会话按 20 个 turn 自动收口一次，并触发一轮闭合会话抽取/维护，而不是无限等待。现在如果会话是在 `before_prompt_build` 阶段因为 `session_id` 切换或 turn-limit 被收口，也会异步继续处理，不会只停留在 `embedded_sessions` 里。启动时 embedded 模式还会额外扫描一次“之前已经闭合但尚未处理”的 session 文件。若你想关闭某一条机制，把对应的 `liveExtractEveryTurns` 或 `sessionMaxTurns` 设成 `0`。
 
 ### 2. 重启 OpenClaw
 
@@ -210,6 +211,7 @@ AUTOSKILL_OPENCLAW_SKILL_INSTALL_MODE=openclaw_mirror
 - OpenClaw 本地 skills 目录只是安装镜像，不是真源
 - `before_prompt_build` 的检索注入默认关闭，避免重复检索、重复提示
 - 在 embedded 主线下，`agent_end` 在 adapter 运行时内驱动抽取与维护
+- 如果 `before_prompt_build` 因为 `session_id` 变化或 `sessionMaxTurns` 命中而收口了旧会话，这个闭合会话也会异步继续处理，不会只归档不抽取
 - 新部署建议显式把 `runtimeMode` 设为 `embedded`
 - `runtimeMode=sidecar` 仍保留为可选外置部署路径
 
@@ -252,11 +254,13 @@ AUTOSKILL_OPENCLAW_PROMPT_PACK_PATH=/abs/path/to/openclaw_prompt_pack.txt
 - SkillBank：`~/.openclaw/autoskill/SkillBank`
 - embedded 会话归档：`~/.openclaw/autoskill/embedded_sessions`
 - embedded 实时会话快照（每次收到 turn 都会更新）：`~/.openclaw/autoskill/embedded_sessions/<user>/<session>.latest.json`
+- embedded 已处理会话账本：`~/.openclaw/autoskill/embedded_sessions/.autoskill_embedded_processed.jsonl`
 - OpenClaw 本地技能镜像：`~/.openclaw/workspace/skills`
 - sidecar 对话归档（`runtimeMode=sidecar`）：`~/.openclaw/autoskill/conversations`
 
 长会话兜底收口：
 
+- embedded 实时 checkpoint 抽取：`embedded.liveExtractEveryTurns` 默认 `5`
 - embedded 模式：`embedded.sessionMaxTurns` 默认 `20`
 - sidecar / session archive 路径：`AUTOSKILL_OPENCLAW_SESSION_MAX_TURNS` 默认 `20`
 - 如需完全等待 `session_done`、session 切换或 idle-timeout，再把对应值设成 `0`
@@ -345,6 +349,29 @@ AUTOSKILL_OPENCLAW_SKILLS_DIR=~/.openclaw/workspace/skills
 - embedded 的 `openclaw_mirror` 主线上，`before_prompt_build` 检索默认自动关闭；`store_only` 是明确的例外路径，会重新开启检索注入
 - 内置防递归保护，避免抽取/合并过程再次触发抽取链路
 - 优先级说明：若显式配置 `runtimeMode`，会覆盖 no-sidecar 别名
+
+### Embedded 排障：`embedded_sessions` 有文件，但 `SkillBank` 一直是空的
+
+先看这几项：
+
+- 先确认你期待的是“实时 checkpoint 抽取”还是“闭合后抽取”
+- 如果是实时抽取，先看这个 session 是否已经达到 `embedded.liveExtractEveryTurns`
+- 如果是闭合后抽取，确认你看到的是“闭合后的 session 文件”，而不只是 `<session>.jsonl` live 文件和 `<session>.latest.json`
+- 升级后至少重启一次 OpenClaw，让 embedded 启动恢复逻辑扫描历史闭合文件
+- 检查插件日志里是否出现：
+  - `embedded live checkpoints processed source=before_prompt_build_live ...`
+  - `embedded agent_end status=...`
+  - `embedded closed sessions processed source=before_prompt_build ...`
+  - `embedded model call failed across modes: ...`
+- 确认这个闭合会话里至少有一条成功的 `turn_type=main`
+- 确认 `skillBankDir` 就是你实际在检查的目录
+
+最常见的原因：
+
+- 活跃 session 还没达到实时 checkpoint 阈值
+- session 虽然闭合了，但里面没有成功的 `main` turn
+- embedded 模型调用回退链没能拿到可用的 OpenClaw/runtime/manual 目标
+- 你只看到了 live 归档文件，没有看 `*.session_done.*` / `*.session_id_changed.*` / `*.session_turn_limit.*` 这些闭合文件
 
 ### 2. `store_only` 加 `before_prompt_build` 注入
 

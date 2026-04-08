@@ -122,7 +122,8 @@ The installer writes a plugin config like this into `~/.openclaw/openclaw.json` 
             "skillBankDir": "~/.openclaw/autoskill/SkillBank",
             "openclawSkillsDir": "~/.openclaw/workspace/skills",
             "sessionArchiveDir": "~/.openclaw/autoskill/embedded_sessions",
-            "sessionMaxTurns": 20
+            "sessionMaxTurns": 20,
+            "liveExtractEveryTurns": 5
           }
         }
       }
@@ -131,7 +132,7 @@ The installer writes a plugin config like this into `~/.openclaw/openclaw.json` 
 }
 ```
 
-`embedded.sessionMaxTurns` defaults to `20`. If a session never ends and `session_id` never changes, AutoSkill will close that local archive segment after 20 turns and run one extraction/maintenance pass instead of waiting forever. Set it to `0` to disable this safeguard.
+`embedded.liveExtractEveryTurns` defaults to `5`. AutoSkill now runs one live extraction/maintenance pass every 5 turns for an active embedded session, so you do not need to wait for the session to end before useful skills start appearing. `embedded.sessionMaxTurns` still defaults to `20` as a long-session safeguard: if a session never ends and `session_id` never changes, AutoSkill closes that local archive segment after 20 turns and runs a closed-session pass instead of waiting forever. Closed sessions detected during `before_prompt_build` are processed asynchronously too, and startup recovery still scans previously closed files that were never processed. Set either `liveExtractEveryTurns` or `sessionMaxTurns` to `0` to disable that specific safeguard.
 
 ### 2. Restart OpenClaw
 
@@ -210,6 +211,7 @@ That means:
 - OpenClaw local skills are an install mirror, not the source of truth.
 - `before_prompt_build` retrieval injection is disabled by default to avoid double retrieval and double guidance.
 - In embedded mainline, `agent_end` is handled in adapter runtime and drives extraction/maintenance.
+- If `before_prompt_build` closes a previous session because `session_id` changed or `sessionMaxTurns` was reached, that closed session is also processed asynchronously instead of being left in `embedded_sessions` only.
 - For new deployments, explicitly set `runtimeMode=embedded` in adapter config.
 - `runtimeMode=sidecar` remains available for optional externalized deployment.
 
@@ -252,11 +254,13 @@ If the prompt pack is missing or invalid, both runtimes fail open and fall back 
 - SkillBank: `~/.openclaw/autoskill/SkillBank`
 - Embedded session archive: `~/.openclaw/autoskill/embedded_sessions`
 - Embedded live session snapshot (updated every incoming turn): `~/.openclaw/autoskill/embedded_sessions/<user>/<session>.latest.json`
+- Embedded processed-session ledger: `~/.openclaw/autoskill/embedded_sessions/.autoskill_embedded_processed.jsonl`
 - Mirrored OpenClaw local skills: `~/.openclaw/workspace/skills`
 - Sidecar conversation archive (`runtimeMode=sidecar`): `~/.openclaw/autoskill/conversations`
 
 Long-lived session safeguard:
 
+- Embedded mode live checkpoint extraction: `embedded.liveExtractEveryTurns` defaults to `5`
 - Embedded mode: `embedded.sessionMaxTurns` defaults to `20`
 - Sidecar/session archive path: `AUTOSKILL_OPENCLAW_SESSION_MAX_TURNS` defaults to `20`
 - Set either value to `0` if you want to wait strictly for `session_done`, session id change, or idle timeout
@@ -345,6 +349,29 @@ Notes:
 - `before_prompt_build` retrieval is auto-disabled by default on the embedded `openclaw_mirror` mainline; `store_only` remains the explicit exception that turns retrieval injection back on
 - recursion guard is enabled for internal extraction/merge calls
 - precedence: explicit `runtimeMode` config overrides the no-sidecar alias
+
+### Embedded troubleshooting: `embedded_sessions` has files but `SkillBank` stays empty
+
+Check these first:
+
+- confirm whether you expect live checkpoint extraction or closed-session extraction
+- for live extraction, check whether the session has already reached `embedded.liveExtractEveryTurns` turns
+- for closed extraction, confirm you see closed session files and not only `<session>.jsonl` / `<session>.latest.json`
+- after upgrading, restart OpenClaw once so embedded startup recovery can scan older closed session files
+- check plugin logs for:
+  - `embedded live checkpoints processed source=before_prompt_build_live ...`
+  - `embedded agent_end status=...`
+  - `embedded closed sessions processed source=before_prompt_build ...`
+  - `embedded model call failed across modes: ...`
+- confirm the closed session contains at least one successful `turn_type=main`
+- confirm `skillBankDir` points to the directory you are actually checking
+
+Typical causes:
+
+- the active session has not yet reached the live checkpoint threshold
+- the session is closed but contains no successful `main` turn
+- model invocation fallback chain cannot reach any usable OpenClaw/runtime/manual target
+- you are only looking at live archive files and not the closed `*.session_done.*` / `*.session_id_changed.*` / `*.session_turn_limit.*` files
 
 ### 2. `store_only` plus `before_prompt_build` injection
 

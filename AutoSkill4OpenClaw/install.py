@@ -109,6 +109,7 @@ def _upsert_openclaw_plugin_config(
     embedded_cfg.setdefault("openclawSkillsDir", str((workspace_dir / "workspace" / "skills").resolve()))
     embedded_cfg.setdefault("sessionArchiveDir", str((autoskill_dir / "embedded_sessions").resolve()))
     embedded_cfg.setdefault("sessionMaxTurns", 20)
+    embedded_cfg.setdefault("liveExtractEveryTurns", 5)
     cfg["embedded"] = embedded_cfg
     skill_retrieval = cfg.get("skillRetrieval")
     if not isinstance(skill_retrieval, dict):
@@ -181,6 +182,7 @@ def _env_template(args: argparse.Namespace, *, repo_dir: Path, workspace_dir: Pa
         "AUTOSKILL_OPENCLAW_INSTALL_USER_ID=\n"
         f"AUTOSKILL_OPENCLAW_EMBEDDED_SESSION_DIR={(workspace_dir / 'autoskill' / 'embedded_sessions').resolve()}\n"
         "AUTOSKILL_OPENCLAW_EMBEDDED_SESSION_MAX_TURNS=20\n"
+        "AUTOSKILL_OPENCLAW_EMBEDDED_LIVE_EXTRACT_EVERY_TURNS=5\n"
         "AUTOSKILL_OPENCLAW_EMBEDDED_BM25_TOP_K=8\n"
         "AUTOSKILL_OPENCLAW_EMBEDDED_MODEL_MODES=openclaw-runtime,openclaw-runtime-subagent,openclaw-config-resolve,manual\n"
         "AUTOSKILL_OPENCLAW_EMBEDDED_MODEL_TIMEOUT_MS=20000\n"

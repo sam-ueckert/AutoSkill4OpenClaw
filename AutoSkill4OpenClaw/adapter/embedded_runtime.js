@@ -1735,7 +1735,13 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
   const state = {
     activeSessionByUser: new Map(),
     liveSessionByKey: new Map(),
-    internalDepth: 0,
+    processingChain: Promise.resolve(),
+    processedClosedSessionKeys: new Set(),
+    inflightClosedSessionKeys: new Set(),
+    processedLiveCheckpointKeys: new Set(),
+    inflightLiveCheckpointKeys: new Set(),
+    processedLedgerLoaded: false,
+    recoveryStarted: false,
   };
   const invokeModel =
     typeof deps.invokeModel === "function" ? deps.invokeModel : createDefaultModelInvoker(cfg, api, log, deps);
@@ -1756,6 +1762,157 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
     return `${userId}::${sessionId}`;
   }
 
+  function clearLiveCheckpointState(key) {
+    if (!key) return;
+    for (const item of Array.from(state.processedLiveCheckpointKeys)) {
+      if (item.startsWith(`${key}::checkpoint:`)) {
+        state.processedLiveCheckpointKeys.delete(item);
+      }
+    }
+    for (const item of Array.from(state.inflightLiveCheckpointKeys)) {
+      if (item.startsWith(`${key}::checkpoint:`)) {
+        state.inflightLiveCheckpointKeys.delete(item);
+      }
+    }
+  }
+
+  function processedLedgerPath() {
+    const root = path.resolve(cfg.embedded.sessionArchiveDir);
+    return path.join(root, ".autoskill_embedded_processed.jsonl");
+  }
+
+  function loadProcessedLedger() {
+    if (state.processedLedgerLoaded) return;
+    state.processedLedgerLoaded = true;
+    const ledgerPath = processedLedgerPath();
+    for (const entry of readJsonl(ledgerPath)) {
+      const key = trimmed(entry?.key);
+      if (!key) continue;
+      state.processedClosedSessionKeys.add(key);
+      const parts = key.split("::");
+      const maybePath = trimmed(parts[parts.length - 1]);
+      if (parts.length >= 2 && maybePath && path.isAbsolute(maybePath)) {
+        state.processedClosedSessionKeys.add(`${parts[0]}::${path.resolve(maybePath)}`);
+      }
+    }
+  }
+
+  function appendProcessedLedgerEntry(key, item, result) {
+    if (!key) return;
+    appendJsonl(processedLedgerPath(), {
+      key,
+      ts: nowMs(),
+      user: item?.user || "",
+      session_id: item?.session_id || "",
+      reason: item?.reason || "",
+      status: result?.status || "",
+    });
+  }
+
+  function closedSessionLedgerKey(item) {
+    if (!item || typeof item !== "object") return "";
+    const userId = slug(item.user || "default", "default");
+    const filePath = trimmed(item.path);
+    if (!filePath) return "";
+    return `${userId}::${path.resolve(filePath)}`;
+  }
+
+  function claimEndedSessions(items) {
+    loadProcessedLedger();
+    const source = Array.isArray(items) ? items : [];
+    const fresh = [];
+    for (const item of source) {
+      const key = closedSessionLedgerKey(item);
+      if (!key) continue;
+      if (state.processedClosedSessionKeys.has(key) || state.inflightClosedSessionKeys.has(key)) continue;
+      state.inflightClosedSessionKeys.add(key);
+      fresh.push({ ...item, _ledgerKey: key });
+    }
+    return fresh;
+  }
+
+  function liveCheckpointEveryTurns() {
+    return Math.max(0, Number(cfg?.embedded?.liveExtractEveryTurns || 0) || 0);
+  }
+
+  function buildLiveCheckpointCandidate(active) {
+    if (!active || typeof active !== "object") return null;
+    const everyTurns = liveCheckpointEveryTurns();
+    if (everyTurns <= 0) return null;
+    const turnCount = Math.max(0, Number(active.turn_count || 0) || 0);
+    if (turnCount < everyTurns) return null;
+    const checkpoint = Math.floor(turnCount / everyTurns);
+    if (checkpoint <= 0) return null;
+    return {
+      user: active.user,
+      session_id: active.session_id,
+      path: active.path,
+      snapshot_path: active.snapshot_path,
+      reason: "live_turn_checkpoint",
+      checkpoint,
+      turn_count: turnCount,
+    };
+  }
+
+  function liveCheckpointLedgerKey(item) {
+    if (!item || typeof item !== "object") return "";
+    const userId = slug(item.user || "default", "default");
+    const sessionId = slug(item.session_id || "session", "session");
+    const checkpoint = Math.max(0, Number(item.checkpoint || 0) || 0);
+    if (!checkpoint) return "";
+    return `${sessionKey(userId, sessionId)}::checkpoint:${checkpoint}`;
+  }
+
+  function claimLiveCheckpoints(items) {
+    const source = Array.isArray(items) ? items : [];
+    const fresh = [];
+    for (const item of source) {
+      const key = liveCheckpointLedgerKey(item);
+      if (!key) continue;
+      if (state.processedLiveCheckpointKeys.has(key) || state.inflightLiveCheckpointKeys.has(key)) continue;
+      state.inflightLiveCheckpointKeys.add(key);
+      fresh.push({ ...item, _liveCheckpointKey: key });
+    }
+    return fresh;
+  }
+
+  function listRecoverableClosedSessions() {
+    const root = path.resolve(cfg.embedded.sessionArchiveDir);
+    if (!root || !fs.existsSync(root)) return [];
+    const out = [];
+    const stack = [root];
+    const closedPattern = /\.(\d+)\.(session_done|session_id_changed|session_turn_limit)\.jsonl$/i;
+    while (stack.length) {
+      const current = stack.pop();
+      if (!current) break;
+      let entries = [];
+      try {
+        entries = fs.readdirSync(current, { withFileTypes: true });
+      } catch (_) {
+        entries = [];
+      }
+      for (const entry of entries) {
+        const absPath = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(absPath);
+          continue;
+        }
+        if (!entry.isFile() || !closedPattern.test(entry.name)) continue;
+        const relDir = path.relative(root, path.dirname(absPath));
+        const user = relDir && relDir !== "." ? relDir.split(path.sep)[0] : "default";
+        const match = entry.name.match(closedPattern);
+        out.push({
+          user,
+          session_id: "",
+          path: absPath,
+          snapshot_path: "",
+          reason: match ? match[2] : "closed",
+        });
+      }
+    }
+    return out.sort((a, b) => String(a.path).localeCompare(String(b.path)));
+  }
+
   function appendSession(payload) {
     const uid = slug(payload.user || "default", "default");
     const sid = trimmed(payload.session_id);
@@ -1774,6 +1931,7 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
       const closedPrev = finalizeSessionFile(prevPath, "session_id_changed");
       const closedPrevSnapshot = finalizeSnapshotFile(prevSnapshotPath, "session_id_changed");
       state.liveSessionByKey.delete(sessionKey(uid, prev));
+      clearLiveCheckpointState(sessionKey(uid, prev));
       if (closedPrev) {
         ended.push({
           user: uid,
@@ -1850,8 +2008,23 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
       }
       state.activeSessionByUser.delete(uid);
       state.liveSessionByKey.delete(key);
+      clearLiveCheckpointState(key);
     }
-    return { ended, reason: "", path: finalPath, snapshot_path: finalSnapshotPath };
+    return {
+      ended,
+      reason: "",
+      path: finalPath,
+      snapshot_path: finalSnapshotPath,
+      active: closeReason
+        ? null
+        : {
+            user: uid,
+            session_id: sid,
+            path: currentPath,
+            snapshot_path: currentSnapshotPath,
+            turn_count: Number(live.turn_count || 0) || 0,
+          },
+    };
   }
 
   function loadClosedSession(item) {
@@ -1887,15 +2060,22 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
         roles,
       });
     }
+    const resolvedSessionId =
+      trimmed(item.session_id) ||
+      trimmed(records[0]?.session_id) ||
+      trimmed(records[records.length - 1]?.session_id);
     return {
       ...item,
+      session_id: resolvedSessionId,
       records,
       messages,
       hasMain,
       hasMainSuccess,
       evidence: {
-        session_id: trimmed(item.session_id),
+        session_id: resolvedSessionId,
         closed_reason: trimmed(item.reason),
+        live_checkpoint: Number(item.checkpoint || 0) || 0,
+        is_live_session: trimmed(item.reason) === "live_turn_checkpoint",
         turn_count: records.length,
         has_main_turn: hasMain,
         has_successful_main_turn: hasMainSuccess,
@@ -1996,15 +2176,250 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
     return { status: "added", skill_id: dirName, path: write.mdPath, mirror_path: mirrorPath };
   }
 
+  async function processEndedSessions(endedItems, payloadUser, modelHint) {
+    const results = [];
+    for (const ended of endedItems) {
+      const session = loadClosedSession(ended);
+      if (!session.hasMain || !session.hasMainSuccess) {
+        results.push({ session_id: session.session_id, status: "skipped", reason: "no_successful_main_turn" });
+        if (log?.info) {
+          log.info(
+            `[autoskill-openclaw-adapter] embedded closed session skipped session=${session.session_id} reason=no_successful_main_turn`,
+          );
+        }
+        continue;
+      }
+      if (!session.messages.length) {
+        results.push({ session_id: session.session_id, status: "skipped", reason: "empty_session_messages" });
+        if (log?.info) {
+          log.info(
+            `[autoskill-openclaw-adapter] embedded closed session skipped session=${session.session_id} reason=empty_session_messages`,
+          );
+        }
+        continue;
+      }
+      try {
+        const candidate = await extractCandidate({
+          invokeModel,
+          sessionMessages: session.messages,
+          sessionEvidence: session.evidence,
+          model: modelHint,
+          metadata: { autoskill_internal: true, channel: "autoskill_embedded_extract" },
+          renderSharedPrompt,
+        });
+        if (!candidate) {
+          results.push({ session_id: session.session_id, status: "skipped", reason: "no_candidate" });
+          if (log?.info) {
+            log.info(
+              `[autoskill-openclaw-adapter] embedded closed session skipped session=${session.session_id} reason=no_candidate`,
+            );
+          }
+          continue;
+        }
+        const maintain = await maintainSkill({
+          userId: payloadUser || ended.user,
+          candidate,
+          modelHint,
+        });
+        results.push({ session_id: session.session_id, ...maintain });
+        if (log?.info) {
+          const statusText = trimmed(maintain?.status) || "unknown";
+          const reasonText = trimmed(maintain?.reason);
+          log.info(
+            `[autoskill-openclaw-adapter] embedded closed session maintained session=${session.session_id} status=${statusText}${reasonText ? ` reason=${reasonText}` : ""}`,
+          );
+        }
+      } catch (err) {
+        results.push({ session_id: session.session_id, status: "failed", reason: String(err) });
+        if (log?.warn) {
+          log.warn(
+            `[autoskill-openclaw-adapter] embedded closed session failed session=${session.session_id} error=${sanitizeModelCallError(err)}`,
+          );
+        }
+      }
+    }
+    return results;
+  }
+
+  async function processLiveCheckpointSessions(items, payloadUser, modelHint) {
+    const results = [];
+    for (const item of items) {
+      const session = loadClosedSession(item);
+      const checkpoint = Math.max(0, Number(item.checkpoint || session?.evidence?.live_checkpoint || 0) || 0);
+      if (!session.hasMain || !session.hasMainSuccess) {
+        results.push({
+          session_id: session.session_id,
+          status: "skipped",
+          reason: "no_successful_main_turn",
+          checkpoint,
+        });
+        if (log?.info) {
+          log.info(
+            `[autoskill-openclaw-adapter] embedded live checkpoint skipped session=${session.session_id} checkpoint=${checkpoint} reason=no_successful_main_turn`,
+          );
+        }
+        continue;
+      }
+      if (!session.messages.length) {
+        results.push({
+          session_id: session.session_id,
+          status: "skipped",
+          reason: "empty_session_messages",
+          checkpoint,
+        });
+        if (log?.info) {
+          log.info(
+            `[autoskill-openclaw-adapter] embedded live checkpoint skipped session=${session.session_id} checkpoint=${checkpoint} reason=empty_session_messages`,
+          );
+        }
+        continue;
+      }
+      try {
+        const candidate = await extractCandidate({
+          invokeModel,
+          sessionMessages: session.messages,
+          sessionEvidence: session.evidence,
+          model: modelHint,
+          metadata: { autoskill_internal: true, channel: "autoskill_embedded_extract" },
+          renderSharedPrompt,
+        });
+        if (!candidate) {
+          results.push({ session_id: session.session_id, status: "skipped", reason: "no_candidate", checkpoint });
+          if (log?.info) {
+            log.info(
+              `[autoskill-openclaw-adapter] embedded live checkpoint skipped session=${session.session_id} checkpoint=${checkpoint} reason=no_candidate`,
+            );
+          }
+          continue;
+        }
+        const maintain = await maintainSkill({
+          userId: payloadUser || item.user,
+          candidate,
+          modelHint,
+        });
+        results.push({ session_id: session.session_id, checkpoint, ...maintain });
+        if (log?.info) {
+          const statusText = trimmed(maintain?.status) || "unknown";
+          const reasonText = trimmed(maintain?.reason);
+          log.info(
+            `[autoskill-openclaw-adapter] embedded live checkpoint maintained session=${session.session_id} checkpoint=${checkpoint} status=${statusText}${reasonText ? ` reason=${reasonText}` : ""}`,
+          );
+        }
+      } catch (err) {
+        results.push({ session_id: session.session_id, status: "failed", reason: String(err), checkpoint });
+        if (log?.warn) {
+          log.warn(
+            `[autoskill-openclaw-adapter] embedded live checkpoint failed session=${session.session_id} checkpoint=${checkpoint} error=${sanitizeModelCallError(err)}`,
+          );
+        }
+      }
+    }
+    return results;
+  }
+
+  function summarizeEndedSessionResults(results) {
+    const items = Array.isArray(results) ? results : [];
+    const changed = items.filter((x) => x.status === "added" || x.status === "merged");
+    return {
+      status: changed.length ? "scheduled" : "skipped",
+      reason: changed.length ? "" : "session_not_extractable",
+      jobs: items,
+    };
+  }
+
+  function queueEndedSessionProcessing(endedItems, payloadUser, modelHint, source, waitForResult = false) {
+    const fresh = claimEndedSessions(endedItems);
+    if (!fresh.length) {
+      const empty = [];
+      return waitForResult ? Promise.resolve(empty) : empty;
+    }
+    const runner = async () => {
+      const results = await processEndedSessions(fresh, payloadUser, modelHint);
+      for (let i = 0; i < fresh.length; i += 1) {
+        const item = fresh[i];
+        const key = trimmed(item?._ledgerKey);
+        state.inflightClosedSessionKeys.delete(key);
+        const result = Array.isArray(results) ? results[i] : null;
+        if (key && result?.status !== "failed") {
+          state.processedClosedSessionKeys.add(key);
+          appendProcessedLedgerEntry(key, item, result);
+        }
+      }
+      if (log?.info) {
+        const changedCount = results.filter((x) => x.status === "added" || x.status === "merged").length;
+        const failedCount = results.filter((x) => x.status === "failed").length;
+        log.info(
+          `[autoskill-openclaw-adapter] embedded closed sessions processed source=${source} total=${results.length} changed=${changedCount} failed=${failedCount}`,
+        );
+      }
+      return results;
+    };
+    const runPromise = state.processingChain.then(runner, runner);
+    state.processingChain = runPromise.catch(() => []);
+    if (waitForResult) return runPromise;
+    runPromise.catch((err) => {
+      for (const item of fresh) {
+        const key = trimmed(item?._ledgerKey);
+        state.inflightClosedSessionKeys.delete(key);
+      }
+      if (log?.warn) {
+        log.warn(
+          `[autoskill-openclaw-adapter] embedded closed session background processing failed source=${source} error=${sanitizeModelCallError(err)}`,
+        );
+      }
+    });
+    return fresh;
+  }
+
+  function queueLiveCheckpointProcessing(items, payloadUser, modelHint, source, waitForResult = false) {
+    const fresh = claimLiveCheckpoints(items);
+    if (!fresh.length) {
+      const empty = [];
+      return waitForResult ? Promise.resolve(empty) : empty;
+    }
+    const runner = async () => {
+      const results = await processLiveCheckpointSessions(fresh, payloadUser, modelHint);
+      for (let i = 0; i < fresh.length; i += 1) {
+        const item = fresh[i];
+        const key = trimmed(item?._liveCheckpointKey);
+        state.inflightLiveCheckpointKeys.delete(key);
+        const result = Array.isArray(results) ? results[i] : null;
+        if (key && result?.status !== "failed") {
+          state.processedLiveCheckpointKeys.add(key);
+        }
+      }
+      if (log?.info) {
+        const changedCount = results.filter((x) => x.status === "added" || x.status === "merged").length;
+        const failedCount = results.filter((x) => x.status === "failed").length;
+        log.info(
+          `[autoskill-openclaw-adapter] embedded live checkpoints processed source=${source} total=${results.length} changed=${changedCount} failed=${failedCount}`,
+        );
+      }
+      return results;
+    };
+    const runPromise = state.processingChain.then(runner, runner);
+    state.processingChain = runPromise.catch(() => []);
+    if (waitForResult) return runPromise;
+    runPromise.catch((err) => {
+      for (const item of fresh) {
+        const key = trimmed(item?._liveCheckpointKey);
+        state.inflightLiveCheckpointKeys.delete(key);
+      }
+      if (log?.warn) {
+        log.warn(
+          `[autoskill-openclaw-adapter] embedded live checkpoint background processing failed source=${source} error=${sanitizeModelCallError(err)}`,
+        );
+      }
+    });
+    return fresh;
+  }
+
   async function handle(payload, event, ctx) {
     if (!payload || typeof payload !== "object") {
       return { status: "skipped", reason: "empty_payload" };
     }
     if (isInternalEvent(event, ctx)) {
       return { status: "skipped", reason: "internal_extraction_event" };
-    }
-    if (state.internalDepth > 0) {
-      return { status: "skipped", reason: "internal_extraction_busy" };
     }
     const staged = appendSession(payload);
     if (!staged.ended.length) {
@@ -2017,49 +2432,14 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
     }
 
     const modelHint = detectModelHint(event, ctx);
-    const results = [];
-    for (const ended of staged.ended) {
-      const session = loadClosedSession(ended);
-      if (!session.hasMain || !session.hasMainSuccess) {
-        results.push({ session_id: session.session_id, status: "skipped", reason: "no_successful_main_turn" });
-        continue;
-      }
-      if (!session.messages.length) {
-        results.push({ session_id: session.session_id, status: "skipped", reason: "empty_session_messages" });
-        continue;
-      }
-      state.internalDepth += 1;
-      try {
-        const candidate = await extractCandidate({
-          invokeModel,
-          sessionMessages: session.messages,
-          sessionEvidence: session.evidence,
-          model: modelHint,
-          metadata: { autoskill_internal: true, channel: "autoskill_embedded_extract" },
-          renderSharedPrompt,
-        });
-        if (!candidate) {
-          results.push({ session_id: session.session_id, status: "skipped", reason: "no_candidate" });
-          continue;
-        }
-        const maintain = await maintainSkill({
-          userId: payload.user,
-          candidate,
-          modelHint,
-        });
-        results.push({ session_id: session.session_id, ...maintain });
-      } catch (err) {
-        results.push({ session_id: session.session_id, status: "failed", reason: String(err) });
-      } finally {
-        state.internalDepth = Math.max(0, state.internalDepth - 1);
-      }
-    }
-    const changed = results.filter((x) => x.status === "added" || x.status === "merged");
-    return {
-      status: changed.length ? "scheduled" : "skipped",
-      reason: changed.length ? "" : "session_not_extractable",
-      jobs: results,
-    };
+    const results = await queueEndedSessionProcessing(
+      staged.ended,
+      payload.user,
+      modelHint,
+      "agent_end",
+      true,
+    );
+    return summarizeEndedSessionResults(results);
   }
 
   async function stageLive(payload, event, ctx) {
@@ -2070,13 +2450,44 @@ export function createEmbeddedProcessor(cfg, api, log, deps = {}) {
       return { status: "skipped", reason: "internal_extraction_event" };
     }
     const staged = appendSession(payload);
+    const modelHint = detectModelHint(event, ctx);
+    if (staged.ended.length) {
+      queueEndedSessionProcessing(staged.ended, payload.user, modelHint, "before_prompt_build", false);
+    }
+    const checkpoint = buildLiveCheckpointCandidate(staged.active);
+    if (checkpoint) {
+      queueLiveCheckpointProcessing([checkpoint], payload.user, modelHint, "before_prompt_build_live", false);
+    }
     return {
       status: staged.ended.length ? "staged_with_closed_sessions" : "staged",
       reason: staged.reason || "",
       session_path: staged.path,
       session_snapshot_path: staged.snapshot_path,
       closed_sessions: staged.ended,
+      live_checkpoint: checkpoint,
     };
+  }
+
+  function scheduleStartupRecovery() {
+    if (state.recoveryStarted) return;
+    state.recoveryStarted = true;
+    const recoverable = listRecoverableClosedSessions();
+    if (!recoverable.length) return;
+    if (log?.info) {
+      log.info(
+        `[autoskill-openclaw-adapter] embedded startup recovery discovered closed_sessions=${recoverable.length}`,
+      );
+    }
+    queueEndedSessionProcessing(recoverable, "", "", "startup_recovery", false);
+  }
+
+  if (typeof setTimeout === "function") {
+    const timer = setTimeout(() => {
+      scheduleStartupRecovery();
+    }, 0);
+    if (timer && typeof timer.unref === "function") timer.unref();
+  } else {
+    scheduleStartupRecovery();
   }
 
   return { handle, stageLive };

@@ -40,6 +40,7 @@ class OpenClawInstallTest(unittest.TestCase):
             self.assertEqual(cfg["runtimeMode"], "embedded")
             self.assertEqual(cfg["openclawSkillInstallMode"], "openclaw_mirror")
             self.assertEqual(embedded["sessionMaxTurns"], 20)
+            self.assertEqual(embedded["liveExtractEveryTurns"], 5)
             self.assertEqual(embedded["skillBankDir"], str((workspace / "autoskill" / "SkillBank").resolve()))
             self.assertEqual(embedded["openclawSkillsDir"], str((workspace / "workspace" / "skills").resolve()))
             self.assertEqual(
@@ -61,7 +62,7 @@ class OpenClawInstallTest(unittest.TestCase):
                                     "config": {
                                         "runtimeMode": "sidecar",
                                         "openclawSkillInstallMode": "store_only",
-                                        "embedded": {"sessionMaxTurns": 99},
+                                        "embedded": {"sessionMaxTurns": 99, "liveExtractEveryTurns": 7},
                                     },
                                 }
                             }
@@ -82,6 +83,7 @@ class OpenClawInstallTest(unittest.TestCase):
             self.assertEqual(cfg["runtimeMode"], "sidecar")
             self.assertEqual(cfg["openclawSkillInstallMode"], "store_only")
             self.assertEqual(cfg["embedded"]["sessionMaxTurns"], 99)
+            self.assertEqual(cfg["embedded"]["liveExtractEveryTurns"], 7)
 
     def test_env_template_contains_long_session_turn_limit(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -100,12 +102,14 @@ class OpenClawInstallTest(unittest.TestCase):
                 workspace_dir=Path(tmp) / ".openclaw",
             )
             self.assertIn("AUTOSKILL_OPENCLAW_SESSION_MAX_TURNS=20", text)
+            self.assertIn("AUTOSKILL_OPENCLAW_EMBEDDED_LIVE_EXTRACT_EVERY_TURNS=5", text)
 
     def test_adapter_manifest_embedded_schema_stays_in_sync(self) -> None:
         manifest_path = _REPO_ROOT / "AutoSkill4OpenClaw" / "adapter" / "openclaw.plugin.json"
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
         embedded = data["configSchema"]["properties"]["embedded"]["properties"]
         self.assertIn("sessionMaxTurns", embedded)
+        self.assertIn("liveExtractEveryTurns", embedded)
         self.assertIn("promptPackPath", embedded)
 
     def test_env_example_covers_run_proxy_env_keys(self) -> None:

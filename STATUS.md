@@ -1,5 +1,116 @@
 # STATUS
 
+## 2026-04-08 - Round 33 (embedded live checkpoint extraction)
+
+### Scope
+- Target area: `AutoSkill4OpenClaw/adapter/embedded_runtime.js`, `AutoSkill4OpenClaw/adapter/index.js`, installer/config surfaces, and embedded docs/tests.
+- Objective: stop waiting for session end in embedded mode by adding periodic live extraction on active sessions, while keeping closed-session extraction and recovery intact.
+
+### Completed
+- Added embedded live checkpoint extraction:
+  - new embedded config `liveExtractEveryTurns`
+  - default value `5`
+  - runs one extraction/maintenance pass every N turns for an active embedded session without closing the session
+- Reused the existing embedded extraction/maintenance pipeline instead of creating a second skill-writing path:
+  - live checkpoints read the current session JSONL archive
+  - extraction still goes through the same candidate generation and maintenance decision flow
+  - mirror/store-only behavior is unchanged
+- Added live checkpoint dedupe in memory so the same session checkpoint is not reprocessed repeatedly on every subsequent turn.
+- Fixed a real recovery/dedupe bug discovered during this work:
+  - startup recovery could reprocess a just-closed session because recovery items had empty `session_id` while normal queue items had populated `session_id`
+  - closed-session ledger keys are now normalized by file path, so recovery and live closure processing agree on identity
+  - legacy processed-ledger entries are normalized on load to remain compatible
+- Updated config and delivery surfaces:
+  - `AutoSkill4OpenClaw/adapter/openclaw.plugin.json`
+  - `AutoSkill4OpenClaw/install.py`
+  - `AutoSkill4OpenClaw/.env.example`
+  - `AutoSkill4OpenClaw/tests/test_install.py`
+  - `AutoSkill4OpenClaw/adapter/index.test.mjs`
+- Updated embedded READMEs in both languages:
+  - documented `liveExtractEveryTurns`
+  - clarified the difference between live checkpoint extraction and closed-session extraction
+  - expanded troubleshooting for “embedded sessions have data but SkillBank is empty”
+
+### Validation
+- Executed:
+  - `cd AutoSkill4OpenClaw/adapter && npm test`
+  - `python3 -m unittest discover -s AutoSkill4OpenClaw/tests -q`
+  - `python3 -m compileall AutoSkill4OpenClaw`
+- Result:
+  - `66/66` adapter tests pass.
+  - `62/62` Python tests pass.
+  - `compileall` passes for `AutoSkill4OpenClaw`.
+
+### Self-Review Notes
+- The new behavior is bounded and opt-out:
+  - live extraction is periodic, not every turn
+  - `liveExtractEveryTurns=0` disables it cleanly
+  - closed-session extraction, startup recovery, and mirror/install behavior remain intact
+- The change stays inside `AutoSkill4OpenClaw` and does not touch OpenClaw core, memory, compaction, tools, or provider wiring.
+
+### Remaining Issues / Risks
+- Embedded extraction still depends on the host OpenClaw deployment actually invoking the adapter lifecycle hooks.
+- Live checkpoint extraction is best-effort in memory across a running process; after a host restart, checkpoints resume from the next observed live turn rather than restoring an exact prior checkpoint cursor.
+- Mirrored skill identity/conflict protection can still be hardened further before enabling more aggressive automated pruning or overwrite behavior.
+
+### Next Step
+- Continue with embedded runtime hardening:
+  - add mirrored-skill conflict guardrails
+  - improve visibility around model invocation fallback failures in real deployments
+  - keep pruning/cleanup logic conservative and fail-open
+
+## 2026-04-08 - Round 32 (embedded closed-session extraction fix)
+
+### Scope
+- Target area: `AutoSkill4OpenClaw/adapter/embedded_runtime.js`, `AutoSkill4OpenClaw/adapter/embedded_runtime.test.mjs`, and embedded runtime docs.
+- Objective: fix a real embedded-mode gap where session files could be closed into `embedded_sessions` but never reach extraction/maintenance, leaving `SkillBank` empty.
+
+### Completed
+- Identified the root issue in embedded mode:
+  - `before_prompt_build` used `stageLive(...)` to append/archive session data
+  - when `stageLive(...)` closed a previous session because of `session_id` change or `sessionMaxTurns`, it only wrote closed files and returned metadata
+  - extraction/maintenance only ran in `handle(...)` / `agent_end`, so those closed sessions could be stranded in `embedded_sessions`
+- Fixed `AutoSkill4OpenClaw/adapter/embedded_runtime.js`:
+  - extracted closed-session processing into a shared queue-backed path
+  - `stageLive(...)` now also schedules asynchronous processing for any session it closes
+  - `handle(...)` and `stageLive(...)` now share the same deduped closed-session processing logic
+  - added a closed-session ledger to avoid duplicate processing of the same finalized archive file
+  - added summary logs:
+    - `embedded closed sessions processed source=agent_end ...`
+    - `embedded closed sessions processed source=before_prompt_build ...`
+- Added regression coverage in `AutoSkill4OpenClaw/adapter/embedded_runtime.test.mjs`:
+  - session closed by `session_id` change during `stageLive(...)` is still extracted
+  - session closed by turn-limit during `stageLive(...)` is still extracted
+- Updated embedded README docs in both languages:
+  - clarified that closed sessions discovered in `before_prompt_build` are processed asynchronously too
+  - added a troubleshooting section for the symptom “`embedded_sessions` has files but `SkillBank` is empty”
+
+### Validation
+- Executed:
+  - `cd AutoSkill4OpenClaw/adapter && npm test`
+  - `python3 -m unittest discover -s AutoSkill4OpenClaw/tests -q`
+- Result:
+  - `62/62` adapter tests pass.
+  - `62/62` Python tests pass.
+
+### Self-Review Notes
+- This fix preserves the original embedded design:
+  - no OpenClaw core changes
+  - no memory/tool/provider path changes
+  - no new dependency introduced
+- The main behavior change is only that a session closed during `before_prompt_build` no longer waits for a later `agent_end` that may never process that already-closed archive.
+
+### Remaining Issues / Risks
+- Embedded extraction still depends on at least one successful `turn_type=main` in the closed session.
+- If the embedded model invocation fallback chain cannot resolve any usable runtime/config/manual target, sessions will close correctly but extraction will still fail; the new logs now make that visible.
+- Mirrored skill identity/conflict protection can still be hardened further before enabling more aggressive automated pruning or overwrite behavior.
+
+### Next Step
+- Continue with embedded runtime hardening:
+  - add mirrored-skill conflict guardrails
+  - improve troubleshooting visibility around model invocation fallback failures
+  - keep pruning/cleanup logic conservative and fail-open
+
 ## 2026-03-15 - Round 31 (remove accidental GitHub workflow delivery)
 
 ### Scope

@@ -30,6 +30,16 @@ function makeSandbox() {
   return { root, sessionArchiveDir, skillBankDir, openclawSkillsDir };
 }
 
+async function waitFor(check, timeoutMs = 1500) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const value = await check();
+    if (value) return value;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  return null;
+}
+
 function makeConfig(paths, overrides = {}) {
   const embeddedOverride = overrides.embedded || {};
   const base = { ...overrides };
@@ -302,6 +312,302 @@ test("embedded runtime persists live session snapshot before session end", async
   assert.equal(snap2.turn_count, 2);
   assert.equal(snap2.session_done, false);
   assert(snap2.messages.some((m) => m.role === "tool" && /workspace: clean/.test(m.content)));
+});
+
+test("embedded runtime runs live extraction every configured turn checkpoint", async () => {
+  const paths = makeSandbox();
+  const logger = makeLogger();
+  const calls = [];
+  const processor = createEmbeddedProcessor(
+    makeConfig(paths, {
+      embedded: {
+        sessionMaxTurns: 0,
+        liveExtractEveryTurns: 5,
+      },
+    }),
+    {},
+    logger,
+    {
+      async invokeModel({ metadata }) {
+        calls.push(String(metadata?.channel || ""));
+        if (metadata?.channel === "autoskill_embedded_extract") {
+          return JSON.stringify({
+            skills: [
+              {
+                name: "Live Checkpoint Skill",
+                description: "Extracted from an active embedded session checkpoint.",
+                prompt: "Keep the reusable steps concise.",
+                triggers: ["live checkpoint"],
+                tags: ["live"],
+              },
+            ],
+          });
+        }
+        if (metadata?.channel === "autoskill_embedded_maintain") {
+          return JSON.stringify({ action: "add" });
+        }
+        return JSON.stringify({});
+      },
+    },
+  );
+
+  for (let i = 1; i <= 5; i += 1) {
+    const out = await processor.stageLive(
+      {
+        user: "user1",
+        session_id: "sess-live-checkpoint",
+        turn_type: i === 1 ? "main" : "side",
+        session_done: false,
+        success: true,
+        messages: [
+          { role: i === 1 ? "user" : "assistant", content: `turn-${i} content` },
+          ...(i === 5 ? [{ role: "tool", content: "checkpoint: ready" }] : []),
+        ],
+      },
+      {},
+      {},
+    );
+    if (i < 5) {
+      assert.equal(out.live_checkpoint, null);
+    } else {
+      assert.equal(out.live_checkpoint?.checkpoint, 1);
+    }
+  }
+
+  await waitFor(() => {
+    const extractCalls = calls.filter((item) => item === "autoskill_embedded_extract").length;
+    return extractCalls >= 1 ? true : null;
+  });
+  assert.equal(calls.filter((item) => item === "autoskill_embedded_extract").length, 1);
+  assert.equal(calls.filter((item) => item === "autoskill_embedded_maintain").length, 1);
+
+  await processor.stageLive(
+    {
+      user: "user1",
+      session_id: "sess-live-checkpoint",
+      turn_type: "side",
+      session_done: false,
+      success: true,
+      messages: [{ role: "assistant", content: "turn-6 content" }],
+    },
+    {},
+    {},
+  );
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(calls.filter((item) => item === "autoskill_embedded_extract").length, 1);
+
+  for (let i = 7; i <= 10; i += 1) {
+    await processor.stageLive(
+      {
+        user: "user1",
+        session_id: "sess-live-checkpoint",
+        turn_type: "side",
+        session_done: false,
+        success: true,
+        messages: [{ role: "assistant", content: `turn-${i} content` }],
+      },
+      {},
+      {},
+    );
+  }
+  await waitFor(() => {
+    const extractCalls = calls.filter((item) => item === "autoskill_embedded_extract").length;
+    return extractCalls >= 2 ? true : null;
+  });
+  assert.equal(calls.filter((item) => item === "autoskill_embedded_extract").length, 2);
+});
+
+test("embedded runtime can disable live checkpoint extraction", async () => {
+  const paths = makeSandbox();
+  const logger = makeLogger();
+  let invokeCount = 0;
+  const processor = createEmbeddedProcessor(
+    makeConfig(paths, {
+      embedded: {
+        sessionMaxTurns: 0,
+        liveExtractEveryTurns: 0,
+      },
+    }),
+    {},
+    logger,
+    {
+      async invokeModel() {
+        invokeCount += 1;
+        return JSON.stringify({});
+      },
+    },
+  );
+
+  for (let i = 1; i <= 6; i += 1) {
+    const out = await processor.stageLive(
+      {
+        user: "user1",
+        session_id: "sess-live-disabled",
+        turn_type: i === 1 ? "main" : "side",
+        session_done: false,
+        success: true,
+        messages: [{ role: i === 1 ? "user" : "assistant", content: `turn-${i}` }],
+      },
+      {},
+      {},
+    );
+    assert.equal(out.live_checkpoint, null);
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(invokeCount, 0);
+});
+
+test("embedded runtime processes session_id changes closed during stageLive", async () => {
+  const paths = makeSandbox();
+  const logger = makeLogger();
+  const processor = createEmbeddedProcessor(makeConfig(paths), {}, logger, {
+    invokeModel: makeInvokeModelForAdd(),
+  });
+
+  const first = await processor.stageLive(
+    {
+      user: "user1",
+      session_id: "sess-stage-a",
+      turn_type: "main",
+      session_done: false,
+      success: true,
+      messages: [
+        { role: "user", content: "Need a reusable checklist." },
+        { role: "assistant", content: "I will prepare one." },
+      ],
+    },
+    {},
+    {},
+  );
+  assert.equal(first.status, "staged");
+
+  const switched = await processor.stageLive(
+    {
+      user: "user1",
+      session_id: "sess-stage-b",
+      turn_type: "side",
+      session_done: false,
+      success: true,
+      messages: [{ role: "user", content: "Start a new session." }],
+    },
+    {},
+    {},
+  );
+  assert.equal(switched.status, "staged_with_closed_sessions");
+  assert.equal(Array.isArray(switched.closed_sessions), true);
+  assert.equal(switched.closed_sessions.length, 1);
+  assert.equal(switched.closed_sessions[0].session_id, "sess-stage-a");
+
+  const dirs = await waitFor(() => {
+    const entries = listSkillDirs(paths.skillBankDir, "user1");
+    return entries.length ? entries : null;
+  });
+  assert.ok(dirs);
+  assert.equal(dirs.length, 1);
+});
+
+test("embedded runtime processes turn-limit closures triggered during stageLive", async () => {
+  const paths = makeSandbox();
+  const logger = makeLogger();
+  const processor = createEmbeddedProcessor(
+    makeConfig(paths, {
+      embedded: {
+        sessionMaxTurns: 2,
+      },
+    }),
+    {},
+    logger,
+    {
+      invokeModel: makeInvokeModelForAdd(),
+    },
+  );
+
+  const first = await processor.stageLive(
+    {
+      user: "user1",
+      session_id: "sess-stage-limit",
+      turn_type: "main",
+      session_done: false,
+      success: true,
+      messages: [
+        { role: "user", content: "Need reusable workflow." },
+        { role: "assistant", content: "I will outline it." },
+      ],
+    },
+    {},
+    {},
+  );
+  assert.equal(first.status, "staged");
+
+  const second = await processor.stageLive(
+    {
+      user: "user1",
+      session_id: "sess-stage-limit",
+      turn_type: "side",
+      session_done: false,
+      success: true,
+      messages: [
+        { role: "assistant", content: "Running checks." },
+        { role: "tool", content: "workspace: ready" },
+      ],
+    },
+    {},
+    {},
+  );
+  assert.equal(second.status, "staged_with_closed_sessions");
+  assert.equal(second.closed_sessions[0].reason, "session_turn_limit");
+
+  const dirs = await waitFor(() => {
+    const entries = listSkillDirs(paths.skillBankDir, "user1");
+    return entries.length ? entries : null;
+  });
+  assert.ok(dirs);
+  assert.equal(dirs.length, 1);
+});
+
+test("embedded runtime recovers previously closed session files on startup", async () => {
+  const paths = makeSandbox();
+  const closedDir = path.join(paths.sessionArchiveDir, "user1");
+  fs.mkdirSync(closedDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(closedDir, "sess-recover.123.session_done.jsonl"),
+    [
+      JSON.stringify({
+        event_time: Date.now(),
+        user_id: "user1",
+        session_id: "sess-recover",
+        turn_type: "main",
+        session_done: true,
+        success: true,
+        messages: [
+          { role: "user", content: "Need reusable recovery workflow." },
+          { role: "assistant", content: "Use a stable checklist." },
+        ],
+      }),
+      "",
+    ].join("\n"),
+    "utf8",
+  );
+
+  const logger = makeLogger();
+  createEmbeddedProcessor(makeConfig(paths), {}, logger, {
+    invokeModel: makeInvokeModelForAdd(),
+  });
+
+  const dirs = await waitFor(() => {
+    const entries = listSkillDirs(paths.skillBankDir, "user1");
+    return entries.length ? entries : null;
+  });
+  assert.ok(dirs);
+  assert.equal(dirs.length, 1);
+  assert(
+    logger.entries.some(
+      (entry) =>
+        entry.level === "info" &&
+        /embedded startup recovery discovered closed_sessions=1/.test(String(entry.message || "")),
+    ),
+  );
 });
 
 test("embedded runtime reads shared prompt pack templates for extraction and maintenance", async () => {

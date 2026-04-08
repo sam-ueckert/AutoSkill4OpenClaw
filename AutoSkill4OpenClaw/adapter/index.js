@@ -33,6 +33,7 @@ const DEFAULTS = {
   embedded: {
     sessionArchiveDir: "",
     sessionMaxTurns: 20,
+    liveExtractEveryTurns: 5,
     skillBankDir: "",
     openclawSkillsDir: "",
     promptPackPath: "",
@@ -729,6 +730,17 @@ function normalizeConfig(raw) {
             env.AUTOSKILL_OPENCLAW_EMBEDDED_SESSION_MAX_TURNS ??
             DEFAULTS.embedded.sessionMaxTurns,
         ) || DEFAULTS.embedded.sessionMaxTurns,
+      ),
+    ),
+    liveExtractEveryTurns: Math.max(
+      0,
+      Math.min(
+        1000,
+        Number(
+          rawEmbeddedCfg.liveExtractEveryTurns ??
+            env.AUTOSKILL_OPENCLAW_EMBEDDED_LIVE_EXTRACT_EVERY_TURNS ??
+            DEFAULTS.embedded.liveExtractEveryTurns,
+        ) || DEFAULTS.embedded.liveExtractEveryTurns,
       ),
     ),
     skillBankDir: resolvePathInput(

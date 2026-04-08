@@ -744,6 +744,22 @@ test("normalizeConfig supports embedded session max turns override", async () =>
   );
 });
 
+test("normalizeConfig supports embedded live extraction checkpoint override", async () => {
+  await withEnv(
+    {
+      AUTOSKILL_OPENCLAW_RUNTIME_MODE: "embedded",
+      AUTOSKILL_OPENCLAW_EMBEDDED_LIVE_EXTRACT_EVERY_TURNS: "7",
+    },
+    async () => {
+      const cfg = normalizeConfig({
+        extractOnAgentEnd: true,
+      });
+      assert.equal(cfg.runtimeMode, "embedded");
+      assert.equal(cfg.embedded.liveExtractEveryTurns, 7);
+    },
+  );
+});
+
 test("normalizeConfig supports embedded model invocation env overrides", async () => {
   await withEnv(
     {
