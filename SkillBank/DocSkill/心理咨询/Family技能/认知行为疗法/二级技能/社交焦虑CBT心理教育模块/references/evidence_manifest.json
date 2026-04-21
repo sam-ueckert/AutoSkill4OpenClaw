@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "5f58d75e-34f3-5de6-864c-489a0d766185",
+  "skill_id": "fe2379d7-b3b3-56e2-8d45-2dd9dfd42f3b",
   "skill_name": "社交焦虑CBT心理教育模块",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "建立心理教育基础与治疗动机",
-        "task_family": "CBT psychoeducation",
+        "objective": "建立治疗联盟、提升疾病认知、增强治疗动机",
+        "task_family": "CBT心理教育",
         "method_family": "CBT",
-        "stage": "initial session",
+        "stage": "初始阶段",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "db8b4e12-9f47-5906-9b1a-d5c55d1b7e9e",
         "window_strategy": "strict",
         "anchor_hits": [

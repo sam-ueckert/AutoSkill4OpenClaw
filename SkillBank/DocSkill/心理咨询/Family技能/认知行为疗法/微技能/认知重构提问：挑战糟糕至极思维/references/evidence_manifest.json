@@ -1,10 +1,10 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "ac79240e-355a-5961-9816-67373a2d7f99",
+  "skill_id": "2165678f-e591-55b1-911b-04fda64c4a28",
   "skill_name": "认知重构提问：挑战糟糕至极思维",
-  "support_count": 1,
+  "support_count": 2,
   "supports": [
     {
       "support_id": "251a1030-0b4d-55ec-9b0a-048203bda73d",
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "削弱绝对化信念，拓展自我价值参照系",
+        "objective": "认知松动与优势觉察",
         "task_family": "认知重构",
         "method_family": "CBT（认知行为疗法）",
         "stage": "心理帮助阶段",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "cb335e01-c732-5ec7-a22e-a6317f441729",
         "window_strategy": "strict",
         "anchor_hits": [],
@@ -62,6 +63,73 @@
         "heading_number": "",
         "heading_kind": "outline_llm",
         "section_summary": "主要目标：建立良好的咨询关系。了解来访者基本信息，收集相关材料，明确咨询问题，进行初步的心理评估，协商制定可行的咨询方案，掌握放松技巧。"
+      }
+    },
+    {
+      "support_id": "17befb6d-f440-5429-b5d7-c8d168802b59",
+      "doc_id": "e507e5e0-272c-5bd3-bf08-7d9f71931070",
+      "document_title": "一位高中男生焦虑情绪的心理咨询案例报告.md",
+      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/一位高中男生焦虑情绪的心理咨询案例报告.md",
+      "section": "# 一应高中男生焦虑情绪的心理咨询案例报告",
+      "span": {
+        "start": 6050,
+        "end": 6366
+      },
+      "relation_type": "support",
+      "confidence": 0.95,
+      "quote": "第二次咨询的主要任务：\n$\\textcircled{1}$ 进一步加强了咨询关系。\n\n$\\textcircled{2}$ 反馈咨询作业。C背诵了一篇语文课文《兰亭集序》，承认背诵并不是想象中那么难，自己有能力背好，也认识到记忆力需要一段时间的训练，心态要放平，初步建立了对记忆的自信心。\n\n$\\textcircled{3}$ 巩固咨询效果。针对C所焦虑的威信降低问题，帮助C进行合理归因。首先，明确C所认为的威信高的同学有哪些，并尽可能全面地描述他们的特点。除了C所强调的对同学大吼大叫以外，还有别的方面，例如学习、生活、与同学相处等，与他们进行比较，明确自己还需要改进的方面，以及引导C思考改进的方法，并帮助C建立改进的信心 心。",
+      "metadata": {
+        "document_title": "一位高中男生焦虑情绪的心理咨询案例报告.md",
+        "domain": "psychology",
+        "extraction_unit": "window",
+        "skill_name": "合理归因引导技术",
+        "asset_type": "micro_skill",
+        "granularity": "micro",
+        "asset_node_id": "micro_intervention",
+        "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
+        "asset_level": 3,
+        "visible_role": "leaf",
+        "objective": "修正归因偏差，重建现实性自我评价",
+        "task_family": "认知重构",
+        "method_family": "CBT（认知行为疗法）",
+        "stage": "认知干预",
+        "domain_type": "psychology",
+        "taxonomy_id": "psychology",
+        "candidate_slot": 1,
+        "window_id": "74b14156-df45-5a53-a202-932b5239fa7c",
+        "window_strategy": "strict",
+        "anchor_hits": [
+          "作业"
+        ],
+        "paragraph_start": 59,
+        "paragraph_end": 61,
+        "heading_path": [
+          "# 一应高中男生焦虑情绪的心理咨询案例报告"
+        ],
+        "parent_heading": "",
+        "sibling_headings": [],
+        "subsection_headings": [
+          "# 1.一般情况",
+          "# 2.问题表现",
+          "# 3.主诉和个人陈诉",
+          "# 4.咨询师观察",
+          "# 二、评估与诊断",
+          "2.对该来访者诊断的依据如下：",
+          "# 三、咨询目标的制定",
+          "# 四、咨询方案的制定",
+          "# 2.咨询原理：",
+          "# 1.咨询关系的建立与评估诊断阶段",
+          "第一次咨询的主要任务：",
+          "# ★第二次咨询：",
+          "第二次咨询的主要任务：",
+          "# 六、咨询效果评估",
+          "# 七、讨论与思考",
+          "# 专家点评"
+        ],
+        "context_snippets": [],
+        "heading_number": "",
+        "heading_kind": "outline_llm",
+        "section_summary": "C，男，16岁，身高约1.70米，某中学高一年级重点班学生，身材中等，为本班班长。家庭经济条件较富裕，家中有一个弟弟。C无重大躯体疾病历史，家族成员无精神疾病史，父母婚姻状况良好，未接受过心理咨询。"
       }
     }
   ]

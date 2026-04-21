@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "b53af288-11ca-53d0-b675-07fcb001640f",
+  "skill_id": "350e5052-6f2c-5010-b672-569d09d253ab",
   "skill_name": "CBT家庭作业布置与跟进",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "巩固咨询效果，促进认知与行为改变在日常生活中的迁移",
-        "task_family": "CBT干预实施",
+        "objective": "巩固咨询效果，促进技能迁移至日常生活",
+        "task_family": "CBT咨询执行",
         "method_family": "CBT",
         "stage": "正式咨询阶段",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "4340a7e9-91a4-5655-9099-bd858a60e5e3",
         "window_strategy": "strict",
         "anchor_hits": [

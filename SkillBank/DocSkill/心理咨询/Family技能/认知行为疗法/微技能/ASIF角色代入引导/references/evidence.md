@@ -1,7 +1,7 @@
 # ASIF角色代入引导 Evidence
 
 - family: 认知行为疗法
-- skill_id: e40b00c4-8570-5a74-8ec1-a928967255ad
+- skill_id: 08eaffc0-49c5-5610-802e-7b8783b32ae6
 - support_count: 1
 
 ## Evidence 1

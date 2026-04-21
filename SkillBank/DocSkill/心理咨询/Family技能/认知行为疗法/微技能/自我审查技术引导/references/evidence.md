@@ -1,7 +1,7 @@
 # 自我审查技术引导 Evidence
 
 - family: 认知行为疗法
-- skill_id: 49f20ce2-136b-50b7-a2da-c87441e6de21
+- skill_id: a1a56b83-f08c-5180-8ba5-fefdb12dd23b
 - support_count: 1
 
 ## Evidence 1

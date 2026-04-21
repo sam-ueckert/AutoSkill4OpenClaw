@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "33bd1d63-b89d-5c67-92fe-090f49074d17",
+  "skill_id": "4cd90ab2-effb-5f0c-b2f5-884918e7057d",
   "skill_name": "正念身体扫描床旁实施",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "解耦焦虑情绪与躯体感觉，重建身体安全感",
+        "objective": "躯体锚定与认知解离",
         "task_family": "正念干预",
         "method_family": "CBT",
-        "stage": "symptom regulation",
+        "stage": "symptom modulation",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 2,
         "window_id": "f42b6435-f2b2-56ec-8031-e59df9c70e15",
         "window_strategy": "strict",
         "anchor_hits": [

@@ -1,7 +1,7 @@
 # 自我关怀日记练习 Evidence
 
 - family: 认知行为疗法
-- skill_id: d7f6c688-1455-5ee4-9096-a9d084fbc538
+- skill_id: 6e4983a8-8f73-5622-b068-683a1c33169f
 - support_count: 1
 
 ## Evidence 1

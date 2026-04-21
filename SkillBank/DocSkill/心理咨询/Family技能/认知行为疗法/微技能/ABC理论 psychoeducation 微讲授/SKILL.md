@@ -1,15 +1,14 @@
 ---
-id: "25a9281b-1a3c-56d7-9ba5-0793abfb6491"
+id: "a0443ebb-3eb8-5bee-a2e5-538a974c383d"
 name: "ABC理论 psychoeducation 微讲授"
-description: "向抑郁或 anxious 来访者简明讲授情绪ABC模型（事件-信念-情绪/行为后果），用于帮助其 distinguish emotional reactivity from external triggers by clarifying that beliefs (B), not activating events (A), directly generate consequences (C). Used in early-to-mid CBT sessions for normalization and cognitive linkage awareness."
-version: "0.1.1"
+description: "在首次咨询中，用标准化、非术语化、具象化的语言向求助者简明阐释ABC理论核心：诱发事件（A）不直接导致情绪/行为反应（C），个体对事件的信念（B）才是关键中介；强调通过调整B可主动调节C。"
+version: "0.1.0"
 tags:
-  - "ABC"
-  - "Ellis"
-  - "cognitive model"
-  - "psychoeducation"
   - "CBT"
-  - "cognitive restructuring"
+  - "psychoeducation"
+  - "first_session"
+  - "ABC_theory"
+  - "cognitive_foundation"
   - "认知行为疗法"
   - "profile:psychology::认知行为疗法"
   - "axis:疗法"
@@ -18,156 +17,77 @@ tags:
   - "document_merge_state:active"
   - "canonical:true"
 triggers:
-  - "client attributes distress directly to external events"
-  - "client expresses global self-judgment (e.g., 'I'm not优秀')"
-  - "first session or early conceptualization phase"
-  - "来访者难以区分想法与事实"
-  - "首次引入认知概念时"
+  - "首次会谈进入教育环节"
+  - "求助者已表达对‘为什么我这么焦虑’的困惑"
+  - "SAS测验结果刚反馈完毕"
 examples:
-  - input: "I get so nervous before tests — it’s just the pressure!"
-    output: "A = upcoming test; C = nervousness; B = 'If I fail, I’ll disappoint my parents and prove I’m not优秀.'"
-    notes: "Therapist mirrors client’s phrase 'not优秀' without correction, then names it as B."
-  - input: "Every time I get a low grade, I feel like a failure."
-    output: "A = low grade; C = feeling like a failure; B = 'One grade defines my worth.'"
-    notes: "Therapist invites client to notice the leap from event (A) to global identity claim (B)."
+  - input: "求助者说：‘一想到要考试我就想吐，肯定是考试太可怕了。’"
+    output: "咨询师：‘您说的“考试”是A——它确实发生了；但“可怕”是您心里给它的解读，也就是B。我们试试看：如果此刻您心里想的是“题目我都练过，正好检验一下”，身体会有什么不一样？’"
+    notes: "用对比性B引发体感觉察，不否定其真实反应"
+  - input: "求助者低头说：‘反正我每次考前都这样，改不了。’"
+    output: "咨询师：‘您说的是长期体验，但ABC讲的是‘当下这一刻’的开关——就像手电筒，电池（A）没变，但开关（B）位置变了，光（C）就不同。我们先找到您今天这个开关在哪，好吗？’"
+    notes: "用具象比喻消解宿命感，聚焦可操作性"
 ---
 
 # ABC理论 psychoeducation 微讲授
 
-向抑郁或 anxious 来访者简明讲授情绪ABC模型（事件-信念-情绪/行为后果），用于帮助其 distinguish emotional reactivity from external triggers by clarifying that beliefs (B), not activating events (A), directly generate consequences (C). Used in early-to-mid CBT sessions for normalization and cognitive linkage awareness.
+在首次咨询中，用标准化、非术语化、具象化的语言向求助者简明阐释ABC理论核心：诱发事件（A）不直接导致情绪/行为反应（C），个体对事件的信念（B）才是关键中介；强调通过调整B可主动调节C。
 
 ## Prompt
 
-Introduce the ABC model using clear, non-technical language: define A (activating event), B (belief/interpretation), and C (emotional/behavioral consequence); emphasize that B—not A—directly causes C; provide a concrete, client-relevant example linking their reported distress (e.g., anxiety before exams) to an underlying belief (e.g., 'failing means I’m not优秀'); invite reflection without interpretation or correction.
+用生活化例子（如‘考前发卷瞬间’）切入，区分A（客观事件）、B（内心自动想法，如‘我肯定考砸’）、C（心跳加速、手心出汗、逃走冲动）；明确指出‘不是考试让我焦虑，是我心里那个想法在制造焦虑’；邀请求助者当场用自身经历尝试拆解一个A-B-C链条。
 
 ## Objective
 
-normalize emotional reactivity by attributing it to interpretable cognitive processes
+完成一次精准、非术语化、具象化的ABC原理初次传递
 ## Applicable Signals
 
-- client says 'X made me feel Y'
-- client uses absolutist language ('always', 'never', 'I am worthless')
-- client links self-worth to performance outcomes
+- 求助者提问‘是不是因为考试才这么难受？’
+- 求助者将情绪归因为外部事件（如‘都是期末考害的’）
+- 测验反馈后出现认知好奇（如‘那我该怎么不这么慌？’）
 
 ## Contraindications
 
-- client is in acute crisis or suicidal ideation
-- client has severe cognitive impairment limiting abstract reasoning
-- client explicitly rejects cognitive models
-
-## Intervention Moves
-
-- labeling
-- reframing causality
-- co-construction
-- normalization
+- 求助者当前处于强烈情绪崩溃状态
+- 尚未建立基本信任关系
+- 已由其他咨询师系统讲授过ABC且能复述
 
 ## Workflow Steps
 
-- Name the model and state its purpose: 'This helps us see how thoughts shape feelings.'
-- Define A, B, C with parallel phrasing: 'A is what happened, B is what you told yourself about it, C is how you felt or acted.'
-- Anchor in client’s report: 'You said you felt anxious before exams — let’s map that.'
-- Co-construct A/B/C: 'A = upcoming exam; C = anxiety/tension; what went through your mind right then?'
-- Validate B as understandable, then clarify causal link: 'That thought makes sense — and it’s that thought, not the exam itself, that stirred the anxiety.'
+- 1. 以求助者刚经历的SAS测验或考前情境为锚点，引出A（如‘看到试卷’）
+- 2. 邀请求助者描述当时身体感受与行为冲动（C），同步写在右侧栏
+- 3. 温和提问：‘那一刻你心里闪过的第一个念头是什么？’——捕捉并写下B（如‘我完了’‘别人都比我强’）
+- 4. 指出：‘你看，同样的A（发卷），如果B是‘我复习过了，试试看’，C可能就不同——这不是安慰，是大脑的真实工作方式’
+- 5. 邀请求助者用自己最近一次小压力事件（如‘老师点名提问’）现场试拆A-B-C
 
 ## Constraints
 
-- Must avoid pathologizing language (e.g., 'irrational belief'); use 'unhelpful' or 'rigid' instead
-- Example must be drawn from client’s own narrative, not hypothetical
-- Do not proceed to cognitive restructuring until client demonstrates basic A-B-C linkage
+- 必须在建立初步信任与完成基础评估之后进行
+- 全程避免使用‘非理性信念’‘逻辑谬误’等标签化术语
+- 需配合白板或纸笔进行可视化拆解（A/B/C三栏书写）
 
 ## Cautions
 
-- Avoid over-explaining theory; keep under 90 seconds
-- Do not label client’s belief as 'false'—frame as 'one possible interpretation'
-- Monitor for subtle resistance (e.g., silence, deflection) and pause if present
+- 若求助者立即否定B的作用（如‘就是考试太难了！’），暂停讲授，先共情验证其现实压力，不强行推进
+- 不展开辩驳或作业布置——本微技能仅限单次原理传递
 
 ## Output Contract
 
-- Client verbally distinguishes between A and B in their own experience (e.g., 'So it’s not the exam — it’s what I think it means about me') and identifies at least one personal A-B-C sequence.
+- 求助者能用自己的话举例说明‘同一个A可能因不同B产生不同C’，并至少完成一次自主A-B-C三栏拆解（口头或书写）
 
 ## Example Therapist Responses
 
 ### Example 1
 
-- Client/Input: I get so nervous before tests — it’s just the pressure!
-- Therapist/Output: A = upcoming test; C = nervousness; B = 'If I fail, I’ll disappoint my parents and prove I’m not优秀.'
-- Notes: Therapist mirrors client’s phrase 'not优秀' without correction, then names it as B.
+- Client/Input: 求助者说：‘一想到要考试我就想吐，肯定是考试太可怕了。’
+- Therapist/Output: 咨询师：‘您说的“考试”是A——它确实发生了；但“可怕”是您心里给它的解读，也就是B。我们试试看：如果此刻您心里想的是“题目我都练过，正好检验一下”，身体会有什么不一样？’
+- Notes: 用对比性B引发体感觉察，不否定其真实反应
 
 ### Example 2
 
-- Client/Input: Every time I get a low grade, I feel like a failure.
-- Therapist/Output: A = low grade; C = feeling like a failure; B = 'One grade defines my worth.'
-- Notes: Therapist invites client to notice the leap from event (A) to global identity claim (B).
-
-## Objective
-
-normalize emotional reactivity by attributing it to interpretable cognitive processes
-## Applicable Signals
-
-- client says 'X made me feel Y'
-- client uses absolutist language ('always', 'never', 'I am worthless')
-- client links self-worth to performance outcomes
-- 来访者将情绪反应归因为外部事件本身（如‘他没回消息=我被讨厌了’）
-- 来访者频繁使用绝对化表述（‘总是’‘从不’‘肯定’）
-
-## Contraindications
-
-- client is in acute crisis or suicidal ideation
-- client has severe cognitive impairment limiting abstract reasoning
-- client explicitly rejects cognitive models
-- 来访者已熟练掌握ABC模型
-- 当前处于高激惹或解离状态
-
-## Intervention Moves
-
-- labeling
-- reframing causality
-- co-construction
-- normalization
-
-## Workflow Steps
-
-- Name the model and state its purpose: 'This helps us see how thoughts shape feelings.'
-- Define A, B, C with parallel phrasing: 'A is what happened, B is what you told yourself about it, C is how you felt or acted.'
-- Anchor in client’s report: 'You said you felt anxious before exams — let’s map that.'
-- Co-construct A/B/C: 'A = upcoming exam; C = anxiety/tension; what went through your mind right then?'
-- Validate B as understandable, then clarify causal link: 'That thought makes sense — and it’s that thought, not the exam itself, that stirred the anxiety.'
-
-## Constraints
-
-- Must avoid pathologizing language (e.g., 'irrational belief'); use 'unhelpful' or 'rigid' instead
-- Example must be drawn from client’s own narrative, not hypothetical
-- Do not proceed to cognitive restructuring until client demonstrates basic A-B-C linkage
-- 单次讲授时长≤8分钟
-- 不引入D（反驳）或E（新效果）环节
-
-## Cautions
-
-- Avoid over-explaining theory; keep under 90 seconds
-- Do not label client’s belief as 'false'—frame as 'one possible interpretation'
-- Monitor for subtle resistance (e.g., silence, deflection) and pause if present
-- 若来访者出现回避、否认或强烈羞耻，立即暂停讲授，回归共情与正常化
-- 避免让来访者感觉‘想法错’，聚焦‘想法可调’
-
-## Output Contract
-
-- Client verbally distinguishes between A and B in their own experience (e.g., 'So it’s not the exam — it’s what I think it means about me') and identifies at least one personal A-B-C sequence.
-- 来访者能用自己的话复述A-B-C三要素关系，并举出一个自身生活实例
-
-## Example Therapist Responses
-
-### Example 1
-
-- Client/Input: I get so nervous before tests — it’s just the pressure!
-- Therapist/Output: A = upcoming test; C = nervousness; B = 'If I fail, I’ll disappoint my parents and prove I’m not优秀.'
-- Notes: Therapist mirrors client’s phrase 'not优秀' without correction, then names it as B.
-
-### Example 2
-
-- Client/Input: Every time I get a low grade, I feel like a failure.
-- Therapist/Output: A = low grade; C = feeling like a failure; B = 'One grade defines my worth.'
-- Notes: Therapist invites client to notice the leap from event (A) to global identity claim (B).
+- Client/Input: 求助者低头说：‘反正我每次考前都这样，改不了。’
+- Therapist/Output: 咨询师：‘您说的是长期体验，但ABC讲的是‘当下这一刻’的开关——就像手电筒，电池（A）没变，但开关（B）位置变了，光（C）就不同。我们先找到您今天这个开关在哪，好吗？’
+- Notes: 用具象比喻消解宿命感，聚焦可操作性
 
 ## Files
 
@@ -176,11 +96,9 @@ normalize emotional reactivity by attributing it to interpretable cognitive proc
 
 ## Triggers
 
-- client attributes distress directly to external events
-- client expresses global self-judgment (e.g., 'I'm not优秀')
-- first session or early conceptualization phase
-- 来访者难以区分想法与事实
-- 首次引入认知概念时
+- 首次会谈进入教育环节
+- 求助者已表达对‘为什么我这么焦虑’的困惑
+- SAS测验结果刚反馈完毕
 
 ## Examples
 
@@ -188,26 +106,26 @@ normalize emotional reactivity by attributing it to interpretable cognitive proc
 
 Input:
 
-  I get so nervous before tests — it’s just the pressure!
+  求助者说：‘一想到要考试我就想吐，肯定是考试太可怕了。’
 
 Output:
 
-  A = upcoming test; C = nervousness; B = 'If I fail, I’ll disappoint my parents and prove I’m not优秀.'
+  咨询师：‘您说的“考试”是A——它确实发生了；但“可怕”是您心里给它的解读，也就是B。我们试试看：如果此刻您心里想的是“题目我都练过，正好检验一下”，身体会有什么不一样？’
 
 Notes:
 
-  Therapist mirrors client’s phrase 'not优秀' without correction, then names it as B.
+  用对比性B引发体感觉察，不否定其真实反应
 
 ### Example 2
 
 Input:
 
-  Every time I get a low grade, I feel like a failure.
+  求助者低头说：‘反正我每次考前都这样，改不了。’
 
 Output:
 
-  A = low grade; C = feeling like a failure; B = 'One grade defines my worth.'
+  咨询师：‘您说的是长期体验，但ABC讲的是‘当下这一刻’的开关——就像手电筒，电池（A）没变，但开关（B）位置变了，光（C）就不同。我们先找到您今天这个开关在哪，好吗？’
 
 Notes:
 
-  Therapist invites client to notice the leap from event (A) to global identity claim (B).
+  用具象比喻消解宿命感，聚焦可操作性

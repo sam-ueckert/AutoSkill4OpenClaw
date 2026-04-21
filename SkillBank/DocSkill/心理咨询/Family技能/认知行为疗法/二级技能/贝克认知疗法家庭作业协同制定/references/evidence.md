@@ -1,7 +1,7 @@
 # 贝克认知疗法家庭作业协同制定 Evidence
 
 - family: 认知行为疗法
-- skill_id: f49de64e-7cf9-5f8f-b81f-47d8b18d0544
+- skill_id: 42508591-3e88-5554-9ced-18c9715e56cc
 - support_count: 1
 
 ## Evidence 1

@@ -1,7 +1,7 @@
 # 苏格拉底式提问处理自动化思维 Evidence
 
 - family: 认知行为疗法
-- skill_id: cdb6bb60-10e0-5234-b79f-1a1fa7d06f5f
+- skill_id: 72d74d4a-4aec-55f6-ae02-d81faf0135ca
 - support_count: 1
 
 ## Evidence 1

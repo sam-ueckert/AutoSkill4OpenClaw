@@ -1,7 +1,7 @@
 # CBT六次结构化咨询流程 Evidence
 
 - family: 认知行为疗法
-- skill_id: 38577b06-1ddb-55a7-a4bb-117bcacbfb67
+- skill_id: 4bf204c8-78b6-5ef7-80cf-498e571f2dbd
 - support_count: 1
 
 ## Evidence 1
@@ -13,7 +13,7 @@
 - source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/tppc202406018-14.md
 - section: 4 咨询过程
 - span: 2691:4692
-- confidence: 0.95
+- confidence: 0.98
 - quote: 咨询从2023年10月24日至2023年12月18日共进行6次，地点为学校心理健康中心，时间设置为每周一下午6点到7点，频率为每周一次。
 
 4.1 咨询进程

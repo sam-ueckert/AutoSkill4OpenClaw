@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "cdb6bb60-10e0-5234-b79f-1a1fa7d06f5f",
+  "skill_id": "72d74d4a-4aec-55f6-ae02-d81faf0135ca",
   "skill_name": "苏格拉底式提问处理自动化思维",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "精准瓦解特定自动化思维的认知失真，促发即时认知弹性",
-        "task_family": "cognitive restructuring",
+        "objective": "解构并重构单一自动化思维",
+        "task_family": "cognitive_restructuring",
         "method_family": "CBT",
         "stage": "intervention",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 2,
         "window_id": "804ecf40-fc15-56c4-afee-49b532b75f2e",
         "window_strategy": "strict",
         "anchor_hits": [

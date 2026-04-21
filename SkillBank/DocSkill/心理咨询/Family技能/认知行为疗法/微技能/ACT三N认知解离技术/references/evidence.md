@@ -1,7 +1,7 @@
 # ACT三N认知解离技术 Evidence
 
 - family: 认知行为疗法
-- skill_id: 08dc74ff-6365-5d6b-afb7-ba6806016c94
+- skill_id: 3849edc2-39c9-59b3-9b1f-3e0153bf472f
 - support_count: 1
 
 ## Evidence 1

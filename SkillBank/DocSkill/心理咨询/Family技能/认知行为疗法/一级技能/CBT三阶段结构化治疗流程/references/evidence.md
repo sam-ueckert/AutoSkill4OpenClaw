@@ -1,7 +1,7 @@
 # CBT三阶段结构化治疗流程 Evidence
 
 - family: 认知行为疗法
-- skill_id: ae8b8bc0-bf40-5eea-9d6c-6218b4f1ffcf
+- skill_id: 5809b222-2910-5246-9135-391c471d6983
 - support_count: 1
 
 ## Evidence 1

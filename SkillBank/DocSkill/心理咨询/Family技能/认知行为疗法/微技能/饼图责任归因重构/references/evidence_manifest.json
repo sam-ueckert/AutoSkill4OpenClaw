@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "4944c886-d62e-5e3e-beef-989534ea43a8",
+  "skill_id": "0fe5fee4-a829-5086-9b77-38f15a008350",
   "skill_name": "饼图责任归因重构",
   "support_count": 2,
   "supports": [
@@ -24,18 +24,19 @@
         "domain": "psychology",
         "extraction_unit": "window",
         "skill_name": "饼图责任归因重构",
-        "asset_type": "session_skill",
-        "granularity": "session",
+        "asset_type": "micro_skill",
+        "granularity": "micro",
         "asset_node_id": "micro_intervention",
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
         "objective": "修正过度自责的认知偏差",
         "task_family": "认知重构",
-        "method_family": "CBT",
+        "method_family": "CBT（认知行为疗法）",
         "stage": "中期干预",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "78cfb9bf-0da3-5b0a-a262-c4bec3743ebb",
         "window_strategy": "strict",
         "anchor_hits": [
@@ -67,62 +68,62 @@
       }
     },
     {
-      "support_id": "6f8737ae-898b-5b47-b344-1fd34da6723e",
-      "doc_id": "c588679e-3502-57a3-8b29-ee3acb3267c4",
-      "document_title": "认知疗法视角下的心理咨询案例报告.md",
-      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/认知疗法视角下的心理咨询案例报告.md",
-      "section": "4咨询过程",
+      "support_id": "c0c16a78-2d9f-5234-ae54-3d722a05fdbb",
+      "doc_id": "fa697555-8adf-52eb-ab22-90c49334eaca",
+      "document_title": "基于认知行为疗法的一例大学生心理咨询案例_卞庆华.md",
+      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/基于认知行为疗法的一例大学生心理咨询案例_卞庆华.md",
+      "section": "4 咨询过程",
       "span": {
-        "start": 3938,
-        "end": 4607
+        "start": 4772,
+        "end": 5714
       },
       "relation_type": "support",
       "confidence": 0.95,
-      "quote": "(4)第四次，2014年5月7日\n方法与目的：区分并纠正来访者的核心信念，通过认知重建，继续提高来访者的自信心，在巩固和深化认知重建的结果后，结束咨询.\n\n咨询过程：来访者回顾了自己的成长过程，并着重提到小时候跟爷爷长大、父母离异都是因为她认为自己“一点都不值得被爱”.这个核心信念一直伴随来访者，因而她认为不论在任何情况下都一定要保护好自己.咨询师陪伴来访者重新回顾了幼时的经历，通过运用\"馅饼\"技术，着重分析父母把她留在爷爷身边和父母离异的原因，将来访者个人原因所占比重进行剥离，有效减少来访者的内疚和自责，从而重建了来访者童年的早期记忆.最后，咨询师和来访者还练习了怎样用委婉、温和的语气，而不用强势的口吻来表达不同的意见.\n\n自助计划：当来访者觉察到自动思维、中间信念和核心信念出现时，可以通过之前咨询过程中所运用的咨询技术，对引起负性情绪的负性想法进行纠正，改善负性情绪.此外，还建议她借鉴学习一些交际礼仪来改变自己和别人交往的方式.\n\n4.4干预结果\n(1)来访者自我评估：咨询结束后一个月，小王再次找到咨询师，反映“她们是故意针对我的”这个自动思维和\"我不可爱\"这个核心信念转变很多，开始认同自己，接纳自己，也比较自信了.同时她也通过学习人际交往方面的书籍，慢慢去练习交往际巧，试着站在对方的角度来处理问题，和室友的关系大大缓和，也认为自己完全没有必要退学.\n\n(2)咨询师评估：咨询师明显感觉到来访者的情绪比较稳定，心情比较愉快，自信心增强.在和小王对话过程中，发现她思路比以前更清晰，表达也更流畅，负性情绪得到显著改善.",
+      "quote": "通过对“男友劈腿”这一应激事件的咨询辅导，L意识到自己因为“男友劈腿”这一事件引起的焦虑、自卑、失眠等不良状况并不是这件事情本身所导致的，而是自己对这件事情的不合理认知所导致的。并意识到“男友劈腿”并不能说明自己不好、失败，相反，应该尽快从这件事情带来的负面情绪中走出来，尽快振作起来恢复正常的学习生活状态。\n\n（3）整合利用认知行为疗法的多种技术识别L的中间信念和核心信念，矫正旧的中间信念和核心信念，发展新的核心信念。\n\n（4）采用放松技术，减少焦虑，改善睡眠。让L靠在沙发上，全身各部位处于舒适状态，双臂自然下垂或搁置在座位扶手上。想象自己处在一个令人轻松的情境中，例如坐在湖边或者漫步在一片美丽的田野上，并有规律的深呼吸，达到一种安静平和的状态。咨询师用轻、柔的声调引导L依次练习放松前臂、头面部、颈部、肩、背、胸、腹及下肢，以达到全身肌肉进入松弛状态。经过多次辅导练习和回家练习，L学会了放松技术，并能够在生活中运用，减少了焦虑，改善了睡眠，到第6次咨询时失眠症状已消失。\n\n（5）利用“饼图”技术，使L觉察到自己生活的不平衡，并朝着自己理想的“饼图”发展，实现生活状态的平衡。\n\n![](images/e797df0546c7b9e8606550e4c0213a923d49b3e125a1822241ab030957452ee2.jpg)",
       "metadata": {
-        "document_title": "认知疗法视角下的心理咨询案例报告.md",
+        "document_title": "基于认知行为疗法的一例大学生心理咨询案例_卞庆华.md",
         "domain": "psychology",
         "extraction_unit": "window",
-        "skill_name": "核心信念识别与剥离",
-        "asset_type": "session_skill",
-        "granularity": "session",
+        "skill_name": "饼图生活平衡觉察技术",
+        "asset_type": "micro_skill",
+        "granularity": "micro",
         "asset_node_id": "micro_intervention",
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "削弱核心信念的自我归因强度",
-        "task_family": "认知重建",
-        "method_family": "CBT（认知行为疗法）",
-        "stage": "中后期干预",
+        "objective": "提升生活结构觉察力，激发行为改变动机",
+        "task_family": "life_balance_assessment",
+        "method_family": "CBT",
+        "stage": "intervention",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
-        "window_id": "bb0a8789-b45c-56cc-aca5-0c08e2a91b3f",
+        "candidate_slot": 2,
+        "window_id": "6d370834-0ab6-50ac-a796-b5198ba54c7b",
         "window_strategy": "strict",
         "anchor_hits": [],
-        "paragraph_start": 14,
-        "paragraph_end": 18,
+        "paragraph_start": 37,
+        "paragraph_end": 42,
         "heading_path": [
-          "4咨询过程"
+          "4 咨询过程"
         ],
         "parent_heading": "",
         "sibling_headings": [
-          "认知疗法视角下的心理咨询案例报告",
-          "1个案基本情况",
-          "2个案分析",
-          "3咨询计划",
-          "5对个案的总结与思考"
+          "1 基本信息",
+          "2 个案概念化",
+          "3 咨询方案",
+          "5 咨询效果",
+          "6 案例评价与反思"
         ],
         "subsection_headings": [
-          "4.1咨询关系",
-          "4.2具体的干预措施",
-          "4.3具体咨询过程",
-          "(4)第四次，2014年5月7日",
-          "4.4干预结果"
+          "4.1第一阶段：咨询关系建立与问题评估阶段（第1～2次）",
+          "4.2第二阶段：正式咨询阶段（第3～8次）",
+          "4.3第三阶段：巩固阶段（第9次）",
+          "4.4第四阶段：结束阶段（第10次）"
         ],
         "context_snippets": [],
         "heading_number": "",
         "heading_kind": "outline_llm",
-        "section_summary": "较好.在咨询过程中，小王对咨询师比较信任，自我暴露比较多，也比较配合."
+        "section_summary": "本阶段以建立良好的咨询关系为目标，以共情、接纳、积极关注等咨询态度营造安全的咨询氛围，缓解L的焦虑情绪。对L的困扰进行了了解，确定目前的主要困扰是：失眠、焦虑影响到学习、工作和生活，感到痛苦，渴望改善。收集相应资料，探寻自身改变的意愿，形成初步评估。初步评估：焦虑情绪。"
       }
     }
   ]

@@ -1,12 +1,12 @@
 # CBT中间信念矫正工作表引导 Evidence
 
 - family: 认知行为疗法
-- skill_id: 0f5b8fc3-9d01-5639-ad0c-8739c4419d6e
-- support_count: 2
+- skill_id: fe7b2255-6148-5f6d-be35-7d83efd5f17d
+- support_count: 1
 
 ## Evidence 1
 
-- support_id: 06c5230f-28f6-5ca0-abeb-46086109ec9d
+- support_id: 1f017d9e-1254-57a9-a5b0-668f402e01fd
 - relation_type: support
 - document: 1例基于认知行为疗法的咨询案例报告_曾庆雪.md
 - doc_id: 9b914d45-af5c-5bde-a72d-ff0472b0268b
@@ -28,25 +28,3 @@
 咨询师鼓励小Q总结并运用所学的技术，在生活和学习中去使用，继续做思维记录练习，配合“自我肯定清单”，强化小Q对自身积极优势的发现和肯定，努力成为自己的咨询师。
 
 第四次咨询对话摘录。
-
-## Evidence 2
-
-- support_id: ac82f0d9-d8f0-5a9c-acf1-e5ed056aa037
-- relation_type: support
-- document: 认知行为疗法结合焦点解决短期疗法在1例服刑人员心理矫治中的应用_杨仕才.md
-- doc_id: 64caf9dc-a147-573f-888b-52fa34e041fc
-- source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/认知行为疗法结合焦点解决短期疗法在1例服刑人员心理矫治中的应用_杨仕才.md
-- section: 5 咨询过程
-- span: 5985:6346
-- confidence: 0.95
-- quote: 小S：对的，我是那么想的。
-
-# 5.3 第三阶段（第五、六、七周各一次，共3次）
-
-识别并矫正小S的中间信念和核心信念。
-
-咨询师用苏格拉底式提问和行为检验等技术帮助来访者矫正适应不良的中间信念和核心信念，构建更符合现实的新信念。具体见表1。
-
-表1 小S的信念工作表
-
-<table><tr><td>小s旧的中间信念</td><td>更适应的新信念</td></tr><tr><td>1.只要赚到钱，即使是犯罪,也证明我是有能力的。</td><td>即使没有那么多钱，我也是有能力的，不用以犯罪为代价去证明。</td></tr><tr><td>2.赚不到钱，即使遵纪守法也是无能的表现。</td><td>拥有金钱的多少并不是反映一个人能力大小的唯一标准，而且遵纪守法可以赚到钱。</td></tr></table>

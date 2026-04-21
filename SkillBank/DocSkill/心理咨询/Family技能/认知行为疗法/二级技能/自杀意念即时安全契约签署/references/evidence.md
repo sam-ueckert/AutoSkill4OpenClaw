@@ -1,19 +1,19 @@
 # 自杀意念即时安全契约签署 Evidence
 
 - family: 认知行为疗法
-- skill_id: 807db5fd-7f51-58ef-abdd-480b67d08221
+- skill_id: 5728d36a-d527-55e5-a19a-e36600e9125a
 - support_count: 1
 
 ## Evidence 1
 
 - support_id: cfc3732e-776a-5def-90ce-e0d16669731c
-- relation_type: support
+- relation_type: constraint
 - document: 1例基于认知行为疗法的咨询案例报告_曾庆雪.md
 - doc_id: 9b914d45-af5c-5bde-a72d-ff0472b0268b
 - source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/1例基于认知行为疗法的咨询案例报告_曾庆雪.md
 - section: 5咨询过程
 - span: 2753:3572
-- confidence: 0.99
+- confidence: 1.00
 - quote: 5.1第一阶段（第1次咨询）
 建立关系、收集信息，初步评估和设定基本目标。
 

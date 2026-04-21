@@ -1,13 +1,13 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "0f5b8fc3-9d01-5639-ad0c-8739c4419d6e",
+  "skill_id": "fe7b2255-6148-5f6d-be35-7d83efd5f17d",
   "skill_name": "CBT中间信念矫正工作表引导",
-  "support_count": 2,
+  "support_count": 1,
   "supports": [
     {
-      "support_id": "06c5230f-28f6-5ca0-abeb-46086109ec9d",
+      "support_id": "1f017d9e-1254-57a9-a5b0-668f402e01fd",
       "doc_id": "9b914d45-af5c-5bde-a72d-ff0472b0268b",
       "document_title": "1例基于认知行为疗法的咨询案例报告_曾庆雪.md",
       "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/1例基于认知行为疗法的咨询案例报告_曾庆雪.md",
@@ -23,19 +23,20 @@
         "document_title": "1例基于认知行为疗法的咨询案例报告_曾庆雪.md",
         "domain": "psychology",
         "extraction_unit": "window",
-        "skill_name": "CBT中间信念矫正工作表干预",
+        "skill_name": "CBT中间信念矫正工作表引导",
         "asset_type": "macro_protocol",
         "granularity": "macro",
         "asset_node_id": "session_framework",
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "矫正适应不良中间信念，建立现实性替代信念",
+        "objective": "矫正适应不良中间信念，构建更现实、灵活的新信念",
         "task_family": "认知重构",
         "method_family": "CBT",
-        "stage": "信念层干预",
+        "stage": "中期干预",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "d55b2b34-50bd-58dc-a07f-8ee49fdb322e",
         "window_strategy": "strict",
         "anchor_hits": [
@@ -71,64 +72,6 @@
         "heading_number": "",
         "heading_kind": "outline_llm",
         "section_summary": "建立关系、收集信息，初步评估和设定基本目标。"
-      }
-    },
-    {
-      "support_id": "ac82f0d9-d8f0-5a9c-acf1-e5ed056aa037",
-      "doc_id": "64caf9dc-a147-573f-888b-52fa34e041fc",
-      "document_title": "认知行为疗法结合焦点解决短期疗法在1例服刑人员心理矫治中的应用_杨仕才.md",
-      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/认知行为疗法结合焦点解决短期疗法在1例服刑人员心理矫治中的应用_杨仕才.md",
-      "section": "5 咨询过程",
-      "span": {
-        "start": 5985,
-        "end": 6346
-      },
-      "relation_type": "support",
-      "confidence": 0.95,
-      "quote": "小S：对的，我是那么想的。\n\n# 5.3 第三阶段（第五、六、七周各一次，共3次）\n\n识别并矫正小S的中间信念和核心信念。\n\n咨询师用苏格拉底式提问和行为检验等技术帮助来访者矫正适应不良的中间信念和核心信念，构建更符合现实的新信念。具体见表1。\n\n表1 小S的信念工作表\n\n<table><tr><td>小s旧的中间信念</td><td>更适应的新信念</td></tr><tr><td>1.只要赚到钱，即使是犯罪,也证明我是有能力的。</td><td>即使没有那么多钱，我也是有能力的，不用以犯罪为代价去证明。</td></tr><tr><td>2.赚不到钱，即使遵纪守法也是无能的表现。</td><td>拥有金钱的多少并不是反映一个人能力大小的唯一标准，而且遵纪守法可以赚到钱。</td></tr></table>",
-      "metadata": {
-        "document_title": "认知行为疗法结合焦点解决短期疗法在1例服刑人员心理矫治中的应用_杨仕才.md",
-        "domain": "psychology",
-        "extraction_unit": "window",
-        "skill_name": "CBT中间信念矫正工作表引导",
-        "asset_type": "macro_protocol",
-        "granularity": "macro",
-        "asset_node_id": "session_framework",
-        "asset_path": "family_root/treatment_framework/session_framework",
-        "asset_level": 2,
-        "visible_role": "parent",
-        "objective": "矫正适应不良的中间信念",
-        "task_family": "认知重构",
-        "method_family": "CBT",
-        "stage": "第三阶段",
-        "domain_type": "psychology",
-        "taxonomy_id": "psychology",
-        "window_id": "435eb24a-b16b-514b-a27b-7f09cefa9fd6",
-        "window_strategy": "strict",
-        "anchor_hits": [
-          "阶段",
-          "苏格拉底",
-          "工作表"
-        ],
-        "paragraph_start": 23,
-        "paragraph_end": 28,
-        "heading_path": [
-          "5 咨询过程"
-        ],
-        "parent_heading": "",
-        "sibling_headings": [
-          "1 案例信息",
-          "2 咨询师评估",
-          "3 个案概念化",
-          "4 咨询方案",
-          "6 咨询效果",
-          "7案例评价与反思"
-        ],
-        "subsection_headings": [],
-        "context_snippets": [],
-        "heading_number": "",
-        "heading_kind": "outline_llm",
-        "section_summary": "经与小S商榷，整个咨询过程大致分为四个阶段，共九次。商定一周一次，一次50min，咨询时间为2024.3.24\\~2024.5.11。"
       }
     }
   ]

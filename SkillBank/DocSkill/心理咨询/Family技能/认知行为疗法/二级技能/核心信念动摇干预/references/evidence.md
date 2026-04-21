@@ -1,7 +1,7 @@
 # 核心信念动摇干预 Evidence
 
 - family: 认知行为疗法
-- skill_id: f0382f2d-3e0f-5e39-b81b-a4c09861b831
+- skill_id: e53325ac-2b07-56fd-a2ac-17364bef6d0a
 - support_count: 1
 
 ## Evidence 1

@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "f0382f2d-3e0f-5e39-b81b-a4c09861b831",
+  "skill_id": "e53325ac-2b07-56fd-a2ac-17364bef6d0a",
   "skill_name": "核心信念动摇干预",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "动摇并修正核心信念",
+        "objective": "动摇并软化核心信念的认知确定性，为后续行为改变铺路",
         "task_family": "认知重建",
         "method_family": "CBT",
-        "stage": "中期-巩固期",
+        "stage": "中期-认知深化",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "8560e2c6-132b-50a4-afa8-83945e84a0a6",
         "window_strategy": "strict",
         "anchor_hits": [

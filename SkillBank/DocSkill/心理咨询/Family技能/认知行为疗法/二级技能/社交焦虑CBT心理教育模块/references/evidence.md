@@ -1,7 +1,7 @@
 # 社交焦虑CBT心理教育模块 Evidence
 
 - family: 认知行为疗法
-- skill_id: 5f58d75e-34f3-5de6-864c-489a0d766185
+- skill_id: fe2379d7-b3b3-56e2-8d45-2dd9dfd42f3b
 - support_count: 1
 
 ## Evidence 1

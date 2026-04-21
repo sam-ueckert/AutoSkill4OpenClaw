@@ -1,7 +1,7 @@
 # CBT四阶段结构化治疗流程 Evidence
 
 - family: 认知行为疗法
-- skill_id: d6760e03-3fd7-50c8-afcb-ddd339202f6b
+- skill_id: da6be838-20a7-5615-aaac-083f1d08f039
 - support_count: 1
 
 ## Evidence 1
@@ -13,7 +13,7 @@
 - source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/1例重性抑郁障碍住院患者心理治疗报告_万燕.md
 - section: 4心理治疗过程
 - span: 3901:5723
-- confidence: 0.95
+- confidence: 0.98
 - quote: 第2次治疗：主要回顾L的过去状况，了解他既往病史和家庭史，帮助他把现实困扰和过去经历建立在一起，从而更好地理解自己的问题。
 
 第3次治疗：在前两次的基础上形成个案概念化，确定问题，并让患者理解，商定咨询目标和计划，建立“目标清单”，包括： $\textcircled{1}$ 抑郁障碍的病耻感； $\textcircled{2}$ 消极事件的过分关注； $\textcircled{3}$ 自杀自伤、失恋及人际关系等问题。

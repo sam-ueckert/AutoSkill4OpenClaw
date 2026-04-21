@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "1573aca7-2dc6-5845-9d1e-cb9a4205ae39",
+  "skill_id": "e1ac546a-35ac-5a81-a7ad-0dca9a0a27b7",
   "skill_name": "CBT三阶段结构化辅导协议",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework",
         "asset_level": 1,
         "visible_role": "parent",
-        "objective": "提供跨阶段、可复用的CBT疗程骨架，支持目标对齐与阶段过渡管理",
-        "task_family": "结构化疗程设计",
-        "method_family": "CBT（认知行为疗法）",
-        "stage": "全程规划",
+        "objective": "提供跨阶段、可复用的CBT中程干预节奏与阶段划分",
+        "task_family": "structured_intervention",
+        "method_family": "CBT",
+        "stage": "treatment_planning",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "30f3a516-9dff-5373-b54c-1dda7b630454",
         "window_strategy": "strict",
         "anchor_hits": [

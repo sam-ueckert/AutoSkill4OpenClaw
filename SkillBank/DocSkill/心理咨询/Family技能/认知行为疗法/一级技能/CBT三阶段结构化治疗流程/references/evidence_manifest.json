@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "ae8b8bc0-bf40-5eea-9d6c-6218b4f1ffcf",
+  "skill_id": "5809b222-2910-5246-9135-391c471d6983",
   "skill_name": "CBT三阶段结构化治疗流程",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework",
         "asset_level": 1,
         "visible_role": "parent",
-        "objective": "提供跨案例可复用的CBT分期框架",
+        "objective": "提供跨会话的CBT整体治疗节奏与阶段划分依据",
         "task_family": "treatment_planning",
         "method_family": "CBT",
-        "stage": "treatment_overview",
+        "stage": "treatment_overall",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "8790963f-5d83-5811-b755-18dbe9e71000",
         "window_strategy": "strict",
         "anchor_hits": [

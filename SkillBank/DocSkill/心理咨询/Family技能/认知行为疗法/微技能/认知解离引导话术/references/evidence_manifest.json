@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "fe4a2ccd-e7d1-5d6c-9831-d08962c47a5d",
+  "skill_id": "c97e6cc8-a2ea-5003-a78b-d83bc7a4689a",
   "skill_name": "认知解离引导话术",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "解除认知融合",
-        "task_family": "认知重构",
+        "objective": "解除想法与自我的过度绑定",
+        "task_family": "认知解离",
         "method_family": "接纳与承诺疗法",
         "stage": "干预中段",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "a4264f6f-488c-56b2-9ba9-79a80ebd6d00",
         "window_strategy": "strict",
         "anchor_hits": [
@@ -49,7 +50,6 @@
         ],
         "parent_heading": "",
         "sibling_headings": [
-          "接纳与承诺疗法提升大学新生入学适应力1例",
           "1个案情况",
           "2 个案心理评估",
           "4干预效果评估",

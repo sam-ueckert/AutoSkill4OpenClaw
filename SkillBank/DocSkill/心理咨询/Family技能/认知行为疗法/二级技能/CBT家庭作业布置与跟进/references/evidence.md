@@ -1,7 +1,7 @@
 # CBT家庭作业布置与跟进 Evidence
 
 - family: 认知行为疗法
-- skill_id: b53af288-11ca-53d0-b675-07fcb001640f
+- skill_id: 350e5052-6f2c-5010-b672-569d09d253ab
 - support_count: 1
 
 ## Evidence 1

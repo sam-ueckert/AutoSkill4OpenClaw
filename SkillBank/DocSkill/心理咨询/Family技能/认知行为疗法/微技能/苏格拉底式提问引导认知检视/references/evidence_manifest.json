@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "8a6082e0-0199-5e33-975f-18f99940c815",
+  "skill_id": "4438fdb2-9849-521d-9e2e-99533ad87e11",
   "skill_name": "苏格拉底式提问引导认知检视",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "识别并松动非理性信念",
+        "objective": "促发认知弹性与元认知觉察",
         "task_family": "认知重构",
-        "method_family": "CBT（认知行为疗法）",
-        "stage": "认知检视",
+        "method_family": "CBT",
+        "stage": "正式咨询阶段",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "a237dfde-64b9-574a-bfe2-5b314e96d8a1",
         "window_strategy": "strict",
         "anchor_hits": [

@@ -1,7 +1,7 @@
 # ABC理论导入与初步问题分析 Evidence
 
 - family: 认知行为疗法
-- skill_id: 1949a341-5c56-52cb-afa0-452c74a21a11
+- skill_id: cb7fdbac-e222-5214-ad0a-2ef99b0d632c
 - support_count: 1
 
 ## Evidence 1

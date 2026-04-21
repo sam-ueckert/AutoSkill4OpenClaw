@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "d40bd96c-1608-56e9-9b59-9ef00101f93b",
+  "skill_id": "64b664fb-002c-580b-a0f5-81ef0d9e7433",
   "skill_name": "渐进性肌肉放松+深呼吸双模教学",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "提升来访者对焦虑躯体反应的自主调节能力",
-        "task_family": "physiological_regulation",
-        "method_family": "CBT",
-        "stage": "symptom_management",
+        "objective": "快速缓解躯体焦虑与疲劳，建立生理自我调节能力",
+        "task_family": "放松训练实施",
+        "method_family": "行为主义",
+        "stage": "生理稳态重建",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 2,
         "window_id": "76cfd55b-77cd-5c10-bf01-9d038ddef1df",
         "window_strategy": "strict",
         "anchor_hits": [

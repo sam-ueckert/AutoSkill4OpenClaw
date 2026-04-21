@@ -1,26 +1,26 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "6963db3f-7c5e-5d5a-9ec5-7f09646074a9",
+  "skill_id": "2caa5c54-7249-58c6-bc11-a8f342103059",
   "skill_name": "合理想象技术引导流程",
   "support_count": 1,
   "supports": [
     {
-      "support_id": "ea532f02-792a-55f4-b086-304762a2af5c",
-      "doc_id": "044bcce9-cb40-580c-b5ab-577a406722dd",
-      "document_title": "大学生考试焦虑的心理咨询案例分析_余乐.md",
-      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/大学生考试焦虑的心理咨询案例分析_余乐.md",
-      "section": "三、心理咨询过程",
+      "support_id": "4af66591-2c52-5c83-8049-e62b5d801be4",
+      "doc_id": "bc488648-10a8-5f96-937a-c3abee43822c",
+      "document_title": "1例焦虑情绪表现的个案心理辅导_覃丽燕.md",
+      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/1例焦虑情绪表现的个案心理辅导_覃丽燕.md",
+      "section": "4咨询过程和效果",
       "span": {
-        "start": 2468,
-        "end": 3180
+        "start": 2979,
+        "end": 3182
       },
       "relation_type": "support",
       "confidence": 0.95,
-      "quote": "来访者：我现在觉得这两次没考好也不能说明什么，毕竟离考研还有一段时间，我应该向前看，目前应调整好自己的心态才行。\n\n# (4）布置作业\n\n指导秦某学习使用RSA自我分析报告，从而监控自己的非理性信念，并自觉进行自我辩驳。继续坚持肌肉放松训练。\n\n# 第四次咨询 (2018年11月3日)\n\n（1）咨询目的：巩固来访者学到的合理信念及行为模式。\n\n(2）咨询方法：肌肉放松训练和合理想象技术\n\n(3）咨询过程：\n\n$\\textcircled{1}$ 来访者反馈作业，让其叙述自己与非理性信念的辩驳情况。概括来访者已获得的合理信念。\n\n$\\textcircled{2}$ 运用合理想象技术，让秦某通过想象进入考研实际场景，并实时报告自已的情绪体验，通过观念的转变，让其与先前进行对比，从而及时强化新的认知模式。\n\n$\\textcircled{3}$ 自信心训练，为提高来访者应试水平发挥的稳定性，帮助来访者在想象的考研场景中学会做瞬间的自我放松训练。\n\n$\\textcircled{4}$ 布置作业。让来访者以正式参加考研的心态选做一套模拟题,随后给自已打分。\n\n# （三）巩固与结束阶段\n\n第五次咨询 (2017年12月11日)\n\n（1）咨询目的：评估咨访效果，结束咨访关系。\n\n(2）咨询方法：会谈法和心理测验\n\n(3）咨询过程：\n\n$\\textcircled{1}$ 反馈作业。让来访者自述想象考研情境中的情绪变化，自诉刚开始时感到比较紧张，然后深呼吸告诫自己，没什么大不了的,只要像平时一样就好.心情顿时放松了下来。\n\n$\\textcircled{2}$ 回顾咨询过程，总结咨询效果，给予求助者肯定，鼓励其不断超越自己。",
+      "quote": "来：“我觉得我付出了就应该有回报，她就应该喜欢我，其实是我的自尊心作祟，而且我从来没想过我的这些做法带给她的却是负担。\n\n4.3第三次咨询\n使用技术：合理想象技术。\n\n工作内容：进一步帮助来访者摆脱原有的不合理信念及思维方式，使新的观念得以强化，从而更好地适应现实生活。让来访者，身心放松，缓解紧张、焦虑等情绪，帮助其树立信心，相信自己能对抗困境，激发内在动力，形成更加积极、健康的思维模式，咨询片段如下。",
       "metadata": {
-        "document_title": "大学生考试焦虑的心理咨询案例分析_余乐.md",
+        "document_title": "1例焦虑情绪表现的个案心理辅导_覃丽燕.md",
         "domain": "psychology",
         "extraction_unit": "window",
         "skill_name": "合理想象技术引导流程",
@@ -30,35 +30,40 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "巩固新习得的合理信念并提升其在压力情境下的自动化调用能力",
-        "task_family": "认知行为演练",
-        "method_family": "CBT",
-        "stage": "intervention_delivery",
+        "objective": "缓解焦虑情绪、巩固新认知、增强自我效能感",
+        "task_family": "认知重构",
+        "method_family": "CBT（认知行为疗法）",
+        "stage": "中期干预",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
-        "window_id": "2e9e3e3b-fdbc-5604-8d19-1d866d79ae8a",
+        "candidate_slot": 1,
+        "window_id": "49ea5878-ea0a-5ae8-8a0c-8dfab94d0b86",
         "window_strategy": "strict",
-        "anchor_hits": [
-          "作业",
-          "阶段",
-          "会谈"
-        ],
-        "paragraph_start": 35,
-        "paragraph_end": 52,
+        "anchor_hits": [],
+        "paragraph_start": 18,
+        "paragraph_end": 20,
         "heading_path": [
-          "三、心理咨询过程"
+          "4咨询过程和效果"
         ],
         "parent_heading": "",
         "sibling_headings": [
-          "一、一般资料",
-          "二、评估与诊断",
-          "四、咨询效果评估"
+          "1例焦虑情绪表现的个案心理辅导",
+          "1个案信息",
+          "2 评估和个案概念化",
+          "3制定咨询方案",
+          "5 案例总结及启发"
         ],
-        "subsection_headings": [],
+        "subsection_headings": [
+          "4.1第一次咨询",
+          "4.2第二次咨询",
+          "4.3第三次咨询",
+          "4.4第四次咨询",
+          "4.5咨询效果"
+        ],
         "context_snippets": [],
         "heading_number": "",
         "heading_kind": "outline_llm",
-        "section_summary": "（一）诊断与咨访关系建立阶段第一次咨询 (2018年10月12日)"
+        "section_summary": "咨询目的：与来访者建立信任、安全和尊重的关系，了解来访者的基本背景信息，当前困扰的具体问题，商定咨询目标和计划，说明保密原则和保密例外。"
       }
     }
   ]

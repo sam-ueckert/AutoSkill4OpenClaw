@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "e9fa0256-c3a2-55c0-aefa-e2f83de33335",
+  "skill_id": "71f25abb-ddb3-5802-b11d-edb6ec5a866c",
   "skill_name": "CBT行为实验设计与实施",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "验证并修正适应不良信念",
-        "task_family": "信念检验",
+        "objective": "通过实证检验修正核心信念或中间信念",
+        "task_family": "信念验证",
         "method_family": "CBT",
         "stage": "中期干预",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 2,
         "window_id": "035040af-4ff5-5887-8474-a895af2d22da",
         "window_strategy": "strict",
         "anchor_hits": [

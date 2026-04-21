@@ -1,7 +1,7 @@
 # 床旁正念呼吸引导 Evidence
 
 - family: 认知行为疗法
-- skill_id: fae8139d-8159-5a38-894e-34f71b3d4e1f
+- skill_id: 061e20ac-6680-5406-9466-c7768742f345
 - support_count: 1
 
 ## Evidence 1

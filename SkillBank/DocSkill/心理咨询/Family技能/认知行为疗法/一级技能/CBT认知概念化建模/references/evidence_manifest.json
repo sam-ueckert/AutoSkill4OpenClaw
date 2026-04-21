@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "3b9ab464-8460-56e5-b767-302e4c3d3ee0",
+  "skill_id": "83372cc5-d3b7-5b7f-a10c-07163c0d8332",
   "skill_name": "CBT认知概念化建模",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework",
         "asset_level": 1,
         "visible_role": "parent",
-        "objective": "建立个案特异性认知行为模型",
+        "objective": "建立个案特异性认知-情绪-行为联结模型",
         "task_family": "case_conceptualization",
         "method_family": "CBT",
-        "stage": "assessment_planning",
+        "stage": "assessment_and_formulation",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "49732e15-30e6-53ac-b6b7-84d209e18c74",
         "window_strategy": "strict",
         "anchor_hits": [

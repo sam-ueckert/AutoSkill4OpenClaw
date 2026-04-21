@@ -1,7 +1,7 @@
 # 行为治疗放松训练三步法 Evidence
 
 - family: 认知行为疗法
-- skill_id: 9ae256d0-fa88-55e1-8c73-7e38b6cc0414
+- skill_id: 8fb78097-a70d-59bd-b54c-6744065819b1
 - support_count: 1
 
 ## Evidence 1

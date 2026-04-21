@@ -1,7 +1,7 @@
 # 正念身体扫描床旁实施 Evidence
 
 - family: 认知行为疗法
-- skill_id: 33bd1d63-b89d-5c67-92fe-090f49074d17
+- skill_id: 4cd90ab2-effb-5f0c-b2f5-884918e7057d
 - support_count: 1
 
 ## Evidence 1

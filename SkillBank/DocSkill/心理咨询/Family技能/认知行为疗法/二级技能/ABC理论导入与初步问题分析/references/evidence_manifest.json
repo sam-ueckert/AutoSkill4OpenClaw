@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "1949a341-5c56-52cb-afa0-452c74a21a11",
+  "skill_id": "cb7fdbac-e222-5214-ad0a-2ef99b0d632c",
   "skill_name": "ABC理论导入与初步问题分析",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "在第一次咨询中完成关系建立、问题聚焦与CBT框架共识",
-        "task_family": "初始评估与框架设定",
+        "objective": "在首次咨询中完成心理教育、基线评估与问题概念化",
+        "task_family": "认知行为干预",
         "method_family": "CBT",
         "stage": "initial_session",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 2,
         "window_id": "0733e835-9e6d-5328-a78d-cec7b85218ab",
         "window_strategy": "strict",
         "anchor_hits": [

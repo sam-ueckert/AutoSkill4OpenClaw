@@ -1,7 +1,7 @@
 # 分级暴露计划制定与启动 Evidence
 
 - family: 认知行为疗法
-- skill_id: e701384b-972f-55c6-8b1d-aec45c5fd0f8
+- skill_id: 7d65bf12-e731-55e1-adaf-08ee85cb9cae
 - support_count: 1
 
 ## Evidence 1

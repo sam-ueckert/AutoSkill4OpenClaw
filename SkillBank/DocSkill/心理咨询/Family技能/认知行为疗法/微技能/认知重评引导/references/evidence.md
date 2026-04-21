@@ -1,7 +1,7 @@
 # 认知重评引导 Evidence
 
 - family: 认知行为疗法
-- skill_id: fac0a57a-0086-52bf-a97a-5a861320ca3a
+- skill_id: a9ba8fc5-d2af-594a-8657-ba85586b1673
 - support_count: 1
 
 ## Evidence 1

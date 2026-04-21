@@ -1,7 +1,7 @@
 # 初始沉默破冰共情响应 Evidence
 
 - family: 认知行为疗法
-- skill_id: 0e8e70ea-b5cd-55c7-b91f-dc94d0cc6011
+- skill_id: 0ad617c7-fd7a-5893-9806-5e3c4ebf62ba
 - support_count: 1
 
 ## Evidence 1

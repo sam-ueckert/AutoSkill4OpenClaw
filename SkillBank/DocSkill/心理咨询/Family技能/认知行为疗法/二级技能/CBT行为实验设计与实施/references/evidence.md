@@ -1,7 +1,7 @@
 # CBT行为实验设计与实施 Evidence
 
 - family: 认知行为疗法
-- skill_id: e9fa0256-c3a2-55c0-aefa-e2f83de33335
+- skill_id: 71f25abb-ddb3-5802-b11d-edb6ec5a866c
 - support_count: 1
 
 ## Evidence 1

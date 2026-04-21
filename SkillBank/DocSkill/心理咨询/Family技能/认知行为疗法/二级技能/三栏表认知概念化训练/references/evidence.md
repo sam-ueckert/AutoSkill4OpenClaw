@@ -1,7 +1,7 @@
 # 三栏表认知概念化训练 Evidence
 
 - family: 认知行为疗法
-- skill_id: addebe76-0405-504e-9995-d5ba9ac6010b
+- skill_id: 69464481-ebfd-515a-b16f-6e5541ad7f8e
 - support_count: 1
 
 ## Evidence 1
@@ -13,7 +13,7 @@
 - source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/tppc20240609502-508.md
 - section: 5 咨询过程
 - span: 2975:3945
-- confidence: 0.98
+- confidence: 0.95
 - quote: # 5.2.3　利用王建平老师“三栏表”进行认知训练
 
 找出来访者在面对应激源后产生的自动化思维、中间信念、核心信念，形成案例的认知个案概念化。在本案例中第2次咨询只针对自动化思维开展工作，帮助来访者改变认知。

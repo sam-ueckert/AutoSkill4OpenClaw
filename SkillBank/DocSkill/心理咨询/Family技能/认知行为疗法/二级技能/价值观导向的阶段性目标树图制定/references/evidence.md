@@ -1,13 +1,13 @@
 # 价值观导向的阶段性目标树图制定 Evidence
 
 - family: 认知行为疗法
-- skill_id: 7f7339a7-3c39-5712-bdf9-c643bd757581
+- skill_id: e91839b4-40f2-5835-8690-9b70b98b6936
 - support_count: 1
 
 ## Evidence 1
 
 - support_id: a71a6322-83bc-5d74-ab03-df62e487846c
-- relation_type: support
+- relation_type: case_variant
 - document: 接纳与承诺疗法提升大学新生入学适应力1例_王凯.md
 - doc_id: 07a1b2aa-1a0d-597c-ad86-d75c42de880d
 - source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/接纳与承诺疗法提升大学新生入学适应力1例_王凯.md

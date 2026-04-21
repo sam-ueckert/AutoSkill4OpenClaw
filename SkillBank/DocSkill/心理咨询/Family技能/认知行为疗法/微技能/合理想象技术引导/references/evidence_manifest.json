@@ -1,23 +1,23 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "2b0ce85f-352b-5f5b-8cea-93cd83b1cef0",
+  "skill_id": "dc57bb87-0e1a-5eac-b84d-be6441041bd8",
   "skill_name": "合理想象技术引导",
-  "support_count": 2,
+  "support_count": 1,
   "supports": [
     {
-      "support_id": "d46a0d11-89b2-5ff9-a6b8-dcb9ccc6d201",
-      "doc_id": "2a76f9bc-c900-5c6f-999c-52371aaadc20",
+      "support_id": "4850d494-0570-558c-a293-52b101fdc57d",
+      "doc_id": "044bcce9-cb40-580c-b5ab-577a406722dd",
       "document_title": "大学生考试焦虑的心理咨询案例分析_余乐.md",
-      "source_file": "/Users/panc/AutoSkill/Psy_markdown/bt/大学生考试焦虑的心理咨询案例分析_余乐.md",
+      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/大学生考试焦虑的心理咨询案例分析_余乐.md",
       "section": "大学生考试焦虑的心理咨询案例分析",
       "span": {
         "start": 2456,
         "end": 3162
       },
       "relation_type": "support",
-      "confidence": 0.97,
+      "confidence": 0.98,
       "quote": "来访者：我现在觉得这两次没考好也不能说明什么，毕竟离考研还有一段时间，我应该向前看，目前应调整好自己的心态才行。\n\n(4）布置作业\n指导秦某学习使用RSA自我分析报告，从而监控自己的非理性信念，并自觉进行自我辩驳。继续坚持肌肉放松训练。\n\n# 第四次咨询 (2018年11月3日)\n\n（1）咨询目的：巩固来访者学到的合理信念及行为模式。\n\n(2）咨询方法：肌肉放松训练和合理想象技术\n\n(3）咨询过程：\n\n$\\textcircled{1}$ 来访者反馈作业，让其叙述自己与非理性信念的辩驳情况。概括来访者已获得的合理信念。\n\n$\\textcircled{2}$ 运用合理想象技术，让秦某通过想象进入考研实际场景，并实时报告自已的情绪体验，通过观念的转变，让其与先前进行对比，从而及时强化新的认知模式。\n\n$\\textcircled{3}$ 自信心训练，为提高来访者应试水平发挥的稳定性，帮助来访者在想象的考研场景中学会做瞬间的自我放松训练。\n\n$\\textcircled{4}$ 布置作业。让来访者以正式参加考研的心态选做一套模拟题,随后给自已打分。\n\n（三）巩固与结束阶段\n第五次咨询 (2017年12月11日)\n\n（1）咨询目的：评估咨访效果，结束咨访关系。\n\n(2）咨询方法：会谈法和心理测验\n\n(3）咨询过程：\n\n$\\textcircled{1}$ 反馈作业。让来访者自述想象考研情境中的情绪变化，自诉刚开始时感到比较紧张，然后深呼吸告诫自己，没什么大不了的,只要像平时一样就好.心情顿时放松了下来。\n\n$\\textcircled{2}$ 回顾咨询过程，总结咨询效果，给予求助者肯定，鼓励其不断超越自己。",
       "metadata": {
         "document_title": "大学生考试焦虑的心理咨询案例分析_余乐.md",
@@ -30,13 +30,14 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "强化新认知模式在压力情境下的自动化调用",
-        "task_family": "认知-行为联结训练",
+        "objective": "通过具身化想象实现认知-情绪-行为三联结的巩固",
+        "task_family": "认知行为演练",
         "method_family": "CBT",
-        "stage": "心理帮辅阶段",
+        "stage": "in_session_practice",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
-        "window_id": "8dbd8bc8-6ae2-5bf0-a0c3-9b8607953ec4",
+        "candidate_slot": 2,
+        "window_id": "8d3217da-8657-5c3c-8950-d07356ef7365",
         "window_strategy": "strict",
         "anchor_hits": [
           "作业",
@@ -66,69 +67,6 @@
         "heading_number": "",
         "heading_kind": "outline_llm",
         "section_summary": "余乐1余杰²"
-      }
-    },
-    {
-      "support_id": "0343817b-8aa1-5125-b88c-2358db886839",
-      "doc_id": "588958ef-26a9-5c37-8a3d-cc264775e889",
-      "document_title": "1例大学生人际交往中内心冲突咨询案例报告_张玉.md",
-      "source_file": "/Users/panc/AutoSkill/Psy_markdown/cbt/1例大学生人际交往中内心冲突咨询案例报告_张玉.md",
-      "section": "8 咨询过程",
-      "span": {
-        "start": 4338,
-        "end": 5077
-      },
-      "relation_type": "support",
-      "confidence": 0.93,
-      "quote": "咨询师：很好，你现在似乎已经开始能找到你为什么总是容易纠结、矛盾的原因了。\n\n布置家庭作业：在实际生活当你再次出现心里感到很矛盾、纠结的时候，你可以尝试自己分析一下这里面是否也存在着这样的一些冲突，并把它记录下来，下次咨询的时候可以带来讨论。\n\n8.2第二阶段：第4～7次咨询\n8.2.1任务：咨询师向来访者介绍不合理认知的特征和情绪ABC理论，帮助来访者认识内心冲突背后的认知偏差，以及认知偏差对自己情绪和行为的影响进行讨论。一起探讨来访者更深层次的不合理信念，使其明确对自己情绪和行为上的反应负有责任，用辩论的方法引导来访者对自己的不合理信念产生怀疑和动摇。\n\n8.2.2 方法：具体化技术、澄清技术、阐释技术。\n\n8.2.3过程：咨询师首先查看来访者上次家庭作业的完成情况，结合在作业中记录的具体事件，与来访者一起分析造成来访者困扰的不合理信念，通过与不合理信念的辩论，让其对旧的错误观念产生怀疑和动摇；与来访者共同讨论，逐步建立可以接受的合理观念；运用合理情绪想象技术，想象重新进入之前遭遇的困扰情境中，用新的合理观念重新看待和分析当前情境，然后停止想象，描述和记录自己新的情绪体验，并对这种情绪和观念的积极转变及时给予强化。\n\n咨询片段（第4次咨询）。\n\n咨询师：我们现在先来看看在你在家庭作业中提到的思政课作业这件事怎么样？\n\n来访者：好。\n\n咨询师：你可以再说得具体一点吗?\n\n来访者：就是最近我们在准备思政课的小组作业，小组成员会出现一些拖延、没有提前计划等行为让自己难以接受，但是自己并没有将这种感受表达出来，觉得告知对方，对方也不会改，根本没用，还可能导致与对方关系破裂，还不如不说。但是不说就会让自己觉得很难受。\n\n咨询师：还记得我们之前提到的冲突类型吗？",
-      "metadata": {
-        "document_title": "1例大学生人际交往中内心冲突咨询案例报告_张玉.md",
-        "domain": "psychology",
-        "extraction_unit": "window",
-        "skill_name": "合理情绪想象技术实施",
-        "asset_type": "session_skill",
-        "granularity": "session",
-        "asset_node_id": "micro_intervention",
-        "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
-        "asset_level": 3,
-        "visible_role": "leaf",
-        "objective": "巩固新认知的情绪内化",
-        "task_family": "认知情绪整合",
-        "method_family": "CBT",
-        "stage": "领悟修通",
-        "domain_type": "psychology",
-        "taxonomy_id": "psychology",
-        "window_id": "0296a759-8875-5365-896d-b11d3026df0c",
-        "window_strategy": "strict",
-        "anchor_hits": [
-          "家庭作业",
-          "作业",
-          "阶段"
-        ],
-        "paragraph_start": 14,
-        "paragraph_end": 24,
-        "heading_path": [
-          "8 咨询过程"
-        ],
-        "parent_heading": "",
-        "sibling_headings": [
-          "1一般资料",
-          "2 个人成长史",
-          "3 主诉与个人陈述",
-          "4观察和收集的资料",
-          "5 评估与诊断",
-          "6 原因分析"
-        ],
-        "subsection_headings": [
-          "8.1第一阶段：第1～3次咨询",
-          "8.2第二阶段：第4～7次咨询",
-          "8.3第三阶段：第8～9次咨询",
-          "8.4第四阶段（第10次咨询）"
-        ],
-        "context_snippets": [],
-        "heading_number": "",
-        "heading_kind": "outline_llm",
-        "section_summary": "咨询阶段的划分[3]： $\\textcircled{1}$ 建立咨访关系与心理诊断阶段；$\\textcircled{2}$ 领悟、修通、再教育阶段； $\\textcircled{3}$ 巩固、评估、结束阶段。说明：咨询过程的每一阶段均在上级心理咨询师的指导下进行。"
       }
     }
   ]

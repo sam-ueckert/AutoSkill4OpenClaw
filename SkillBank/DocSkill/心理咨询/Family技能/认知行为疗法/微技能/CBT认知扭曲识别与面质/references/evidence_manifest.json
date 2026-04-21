@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "1f368aaf-aaad-5594-ae31-a9a25227126b",
+  "skill_id": "39e7575d-b6ff-545a-9168-49584d473fb7",
   "skill_name": "CBT认知扭曲识别与面质",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "识别并松动极端化认知模式",
+        "objective": "促发对极端认知模式的觉察与初步松动",
         "task_family": "认知重构",
         "method_family": "CBT",
         "stage": "认知调整",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "a8628cca-b87e-5c8a-9dac-896895a07fbe",
         "window_strategy": "strict",
         "anchor_hits": [

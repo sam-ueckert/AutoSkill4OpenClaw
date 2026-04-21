@@ -1,7 +1,7 @@
 # 认知解离引导话术 Evidence
 
 - family: 认知行为疗法
-- skill_id: fe4a2ccd-e7d1-5d6c-9831-d08962c47a5d
+- skill_id: c97e6cc8-a2ea-5003-a78b-d83bc7a4689a
 - support_count: 1
 
 ## Evidence 1

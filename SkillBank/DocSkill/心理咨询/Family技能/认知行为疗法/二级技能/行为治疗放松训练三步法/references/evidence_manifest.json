@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "9ae256d0-fa88-55e1-8c73-7e38b6cc0414",
+  "skill_id": "8fb78097-a70d-59bd-b54c-6744065819b1",
   "skill_name": "行为治疗放松训练三步法",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "引导来访者掌握可自主练习的放松技能以调节生理唤醒",
-        "task_family": "行为矫正",
+        "objective": "降低急性情绪唤起水平，建立可重复的自我调节行为",
+        "task_family": "情绪调节",
         "method_family": "Behaviorism（行为主义）",
-        "stage": "技能教学",
+        "stage": "情绪稳定化",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "06959b30-e91d-543e-8a07-8dad2cda56d0",
         "window_strategy": "strict",
         "anchor_hits": [

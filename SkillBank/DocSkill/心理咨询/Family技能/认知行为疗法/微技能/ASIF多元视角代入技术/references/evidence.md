@@ -1,7 +1,7 @@
 # ASIF多元视角代入技术 Evidence
 
 - family: 认知行为疗法
-- skill_id: 7dc5988e-03c3-5025-b1a2-6a638708af57
+- skill_id: b57a0236-fd1c-5270-9f80-151e5d270ce7
 - support_count: 1
 
 ## Evidence 1

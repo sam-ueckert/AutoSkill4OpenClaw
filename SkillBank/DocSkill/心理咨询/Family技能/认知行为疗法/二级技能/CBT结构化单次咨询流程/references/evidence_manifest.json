@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "58a72763-c462-57dc-8719-37c97a1471a3",
+  "skill_id": "da8f7267-e118-53a8-b9ba-1019b41afd1f",
   "skill_name": "CBT结构化单次咨询流程",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "维持结构化节奏、强化作业依从、促进认知行为改变",
-        "task_family": "CBT会谈管理",
-        "method_family": "CBT",
-        "stage": "session_execution",
+        "objective": "维持CBT会谈结构一致性与可复制性",
+        "task_family": "会谈结构管理",
+        "method_family": "CBT（认知行为疗法）",
+        "stage": "单次会谈执行",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "4b137c80-aebe-51f3-b8fe-efda7427c87b",
         "window_strategy": "strict",
         "anchor_hits": [

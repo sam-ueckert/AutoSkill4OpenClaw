@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "cd68520f-271a-5f08-bed3-eccc6171018f",
+  "skill_id": "b9382514-564e-5368-9802-2629ddbee41b",
   "skill_name": "苏格拉底式提问引导认知重评",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "挑战自动思维",
+        "objective": "挑战非适应性自动思维",
         "task_family": "cognitive_restructuring",
         "method_family": "CBT",
         "stage": "middle",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 2,
         "window_id": "631d735a-001f-5663-8fd8-74eda7dec56f",
         "window_strategy": "strict",
         "anchor_hits": [

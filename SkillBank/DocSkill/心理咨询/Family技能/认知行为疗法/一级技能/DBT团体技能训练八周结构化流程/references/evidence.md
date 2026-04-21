@@ -1,7 +1,7 @@
 # DBT团体技能训练八周结构化流程 Evidence
 
 - family: 认知行为疗法
-- skill_id: dbc123f8-c000-59f2-9caa-7e78252bc6b8
+- skill_id: 5d3672c5-29a1-5235-91cc-87330dc9ec36
 - support_count: 1
 
 ## Evidence 1

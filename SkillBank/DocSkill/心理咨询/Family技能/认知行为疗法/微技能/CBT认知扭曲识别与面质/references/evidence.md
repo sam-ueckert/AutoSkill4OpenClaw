@@ -1,7 +1,7 @@
 # CBT认知扭曲识别与面质 Evidence
 
 - family: 认知行为疗法
-- skill_id: 1f368aaf-aaad-5594-ae31-a9a25227126b
+- skill_id: 39e7575d-b6ff-545a-9168-49584d473fb7
 - support_count: 1
 
 ## Evidence 1

@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "7dc5988e-03c3-5025-b1a2-6a638708af57",
+  "skill_id": "b57a0236-fd1c-5270-9f80-151e5d270ce7",
   "skill_name": "ASIF多元视角代入技术",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework/micro_intervention",
         "asset_level": 3,
         "visible_role": "leaf",
-        "objective": "拓展认知视角，促进多重声音表达与现实接纳",
+        "objective": "拓展认知视角，促进共情与接纳",
         "task_family": "认知重构",
         "method_family": "CBT（认知行为疗法）",
         "stage": "中期干预",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "cc85e4f8-ec54-53d5-b9dc-da45e8cf74f3",
         "window_strategy": "strict",
         "anchor_hits": [
@@ -51,12 +52,12 @@
         ],
         "parent_heading": "",
         "sibling_headings": [
-          "1例家庭矛盾大学生整合式心理咨询案例报告",
           "1个案信息",
           "2 个案评估",
           "3基于4P模型的个案概念化",
           "5 咨询过程",
-          "6 咨询效果"
+          "6 咨询效果",
+          "7讨论"
         ],
         "subsection_headings": [
           "4.1咨询目标",

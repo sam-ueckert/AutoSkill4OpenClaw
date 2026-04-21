@@ -1,7 +1,7 @@
 # 渐进性肌肉放松+深呼吸双模教学 Evidence
 
 - family: 认知行为疗法
-- skill_id: d40bd96c-1608-56e9-9b59-9ef00101f93b
+- skill_id: 64b664fb-002c-580b-a0f5-81ef0d9e7433
 - support_count: 1
 
 ## Evidence 1

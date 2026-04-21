@@ -1,7 +1,7 @@
 # 图书馆情境渐进式暴露与认知解耦 Evidence
 
 - family: 认知行为疗法
-- skill_id: e85d5e90-e830-5931-9ba0-83b80a931671
+- skill_id: 88ce8f6a-9b73-5c58-8fa5-2ff720805809
 - support_count: 1
 
 ## Evidence 1

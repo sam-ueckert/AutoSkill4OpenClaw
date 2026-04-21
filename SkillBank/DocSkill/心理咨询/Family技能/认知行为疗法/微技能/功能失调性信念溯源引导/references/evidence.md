@@ -1,7 +1,7 @@
 # 功能失调性信念溯源引导 Evidence
 
 - family: 认知行为疗法
-- skill_id: 806048ea-d83a-5bf4-8a33-acaf0929cc52
+- skill_id: 56589745-81be-5f69-be8b-48364ef0ebeb
 - support_count: 1
 
 ## Evidence 1
@@ -13,7 +13,7 @@
 - source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/tppc2019010287-99.md
 - section: 4过程
 - span: 7805:8394
-- confidence: 0.93
+- confidence: 0.92
 - quote: 第 $9 \sim 1 5$ 次，自动思维与中间信念的识别，不合理信念辩驳，认知重建。
 
 起初来访者面带羞愧和焦虑，表示无法完成作业，不太理解什么是自动思维,无法识别自己的自动思维，有些挫败感。咨询师表示理解来访者的感受，并向其宣教治疗初期突然接触这种结构化且复杂的作业确实不容易，可以先试着通过一个更为简单的版本过渡，慢慢练习就会熟练地掌握。

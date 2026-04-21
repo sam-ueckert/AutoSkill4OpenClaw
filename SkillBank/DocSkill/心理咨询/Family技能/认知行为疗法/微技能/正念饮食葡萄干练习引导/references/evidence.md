@@ -1,7 +1,7 @@
 # 正念饮食葡萄干练习引导 Evidence
 
 - family: 认知行为疗法
-- skill_id: 37c61c33-a24c-5949-8002-e8ce48c33086
+- skill_id: d8fa44d0-0248-5120-a330-7ee43aeb57f0
 - support_count: 1
 
 ## Evidence 1

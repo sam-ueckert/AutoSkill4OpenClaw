@@ -1,14 +1,14 @@
 ---
-id: "ce4b3106-f812-5be3-9fbd-2c563f6f06f2"
+id: "6d199a26-577a-5f14-978d-0f96e5a36e38"
 name: "ABC Theory Psychoeducation Scaffold"
-description: "A concise, reusable psychoeducational explanation of Ellis's ABC model for clients experiencing emotion-driven distress — especially depression — used to introduce cognitive mediation between events and reactions."
-version: "0.1.2"
+description: "A concise, reusable psychoeducational explanation of Ellis's ABC model for clients, mapping A (activating event), B (belief), and C (consequence) using a concrete, de-identified client example."
+version: "0.1.0"
 tags:
-  - "ABC theory"
+  - "ABC"
+  - "REBT"
   - "cognitive mediation"
-  - "depression"
   - "psychoeducation"
-  - "CBT"
+  - "CBT foundation"
   - "认知行为疗法"
   - "profile:psychology::认知行为疗法"
   - "axis:疗法"
@@ -17,131 +17,75 @@ tags:
   - "document_merge_state:active"
   - "canonical:true"
 triggers:
-  - "client presents with depressive symptoms and rigid causal attributions"
-  - "therapist needs to establish shared cognitive framework"
-  - "client attributes emotional distress directly to external events"
-  - "client lacks awareness of interpretive role in emotional response"
+  - "client attributes distress to external events"
+  - "client lacks metacognitive awareness of belief-emotion link"
 examples:
-  - input: "Client says: 'I got passed over for the internship — now I’ll never get a good job.'"
-    output: "Therapist: 'Let’s break that down. What happened? [A: passed over] What went through your mind right then? [B: 'I’ll never get a good job'] And what did you feel or do after? [C: stopped applying, felt numb]. Notice — the 'never get a job' thought is what links the event to the feeling.'"
-    notes: "Uses client’s exact phrasing to anchor the model."
-  - input: "Client states: 'My roommate left without saying goodbye — she must hate me.'"
-    output: "Therapist: 'So the event was her leaving quietly [A]. The thought that popped up was 'she must hate me' [B]. And the result was feeling rejected and crying [C]. Would it be different if the thought had been 'maybe she was rushed'? Let’s hold that idea gently.'"
-    notes: "Introduces flexibility without challenging B yet."
+  - input: "Client says: 'My mom yelled at me, so I shut down and cried.'"
+    output: "Therapist: 'So A was her yelling — something you heard. C was shutting down and crying — how you felt and acted. What went through your mind right when she started yelling? That’s the B.'"
+    notes: "Uses client’s language ('yelled', 'shut down') to anchor A and C before inviting B."
+  - input: "Client: 'I failed the test, so I’m worthless.'"
+    output: "Therapist: 'A is the test result — a fact. C is feeling worthless — an emotional consequence. The 'so' part — 'I’m worthless' — that’s the B. It’s not the only possible B about that A. Does that make sense?'"
+    notes: "Highlights the logical connector ('so') as a cue for B; normalizes B as common, not pathological."
 ---
 
 # ABC Theory Psychoeducation Scaffold
 
-A concise, reusable psychoeducational explanation of Ellis's ABC model for clients experiencing emotion-driven distress — especially depression — used to introduce cognitive mediation between events and reactions.
+A concise, reusable psychoeducational explanation of Ellis's ABC model for clients, mapping A (activating event), B (belief), and C (consequence) using a concrete, de-identified client example.
 
 ## Prompt
 
-Introduce the ABC model using plain language and a relatable personal example. Clearly distinguish A (activating event), B (belief about the event), and C (emotional/behavioral consequence). Emphasize that C is not caused directly by A, but by B — and that changing B can change C. Use visual aid (e.g., simple diagram or whiteboard sketch) if available. Check understanding by inviting client to map a recent experience onto A-B-C.
+Introduce the ABC model clearly and non-judgmentally: define A as the observable event, B as the person's automatic thought or interpretation (not 'irrational' but 'unexamined'), and C as the resulting emotion/behavior. Use a neutral, relatable example (e.g., 'Someone cancels plans' → 'They don’t value me' → sadness/withdrawal). Then invite the client to co-identify their own recent A and C, and gently explore their B with open-ended questions ('What went through your mind just then?'). Emphasize that B is where change is possible — not by denying A or suppressing C, but by noticing and testing beliefs.
 
 ## Objective
 
-introduce cognitive mediation model
+teach client the core logic of cognitive mediation
 ## Applicable Signals
 
-- client says 'This always happens because I’m worthless' or 'Nothing ever works out for me'
-- client attributes mood shifts solely to external events without noticing internal interpretations
+- Client says 'It’s because X happened that I feel this way'
+- Client uses absolute language ('always', 'never', 'should') when describing triggers
+- Client expresses helplessness about emotions without referencing thoughts
 
 ## Contraindications
 
-- client is in acute suicidal crisis
+- client is in acute crisis or suicidal ideation
 - client has severe cognitive impairment limiting abstract reasoning
 
 ## Workflow Steps
 
-- 1. Name the model and its purpose: 'a tool to understand how thoughts connect events to feelings'
-- 2. Define A, B, C with brief examples (e.g., A = failed quiz; B = 'I’m a failure'; C = withdrawal, hopelessness)
-- 3. Illustrate mediation: 'It’s not the quiz that made you feel hopeless — it’s what the quiz meant to you'
-- 4. Co-construct one A-B-C from client’s life, using their words
-- 5. Confirm understanding: 'Can you point to which part was the event, which was your thought, and which was the feeling?'
+- 1. Name the model: 'This is called the ABC model — a simple way to understand how our thoughts connect events to feelings.'
+- 2. Define A, B, C with parallel, concrete phrasing: 'A is what happened — something you can see or hear. B is what you told yourself about it — a quick thought or image. C is how you felt or acted afterward.'
+- 3. Illustrate with de-identified, developmentally appropriate example (e.g., 'A: Teacher gave critical feedback. B: "I’m a failure." C: Shame + avoiding class.')
+- 4. Guide client to generate their own A-C pair from recent experience.
+- 5. Gently elicit B using curiosity: 'In that moment, what popped into your head? What did that situation mean to you?'
+- 6. Confirm understanding: Ask client to restate ABC in their own words using their example.
 
 ## Constraints
 
-- Avoid jargon; use concrete, non-stigmatizing language (e.g., 'thoughts' instead of 'irrational beliefs')
-- Do not proceed to belief disputation until client demonstrates basic A-B-C differentiation
+- Must avoid labeling beliefs as 'irrational' or 'wrong'; use 'helpful/unhelpful', 'accurate/inaccurate', or 'testable' instead
+- Must not proceed to belief disputation until client demonstrates basic ABC recognition and ownership of their B
 
 ## Cautions
 
-- Do not imply blame or oversimplify depression as 'just thinking wrong'; frame beliefs as habitual patterns open to gentle exploration
-- Monitor for shame or defensiveness when introducing B — pause and validate before continuing
+- Do not introduce D (disputing) or E (new effect) in this scaffold — this is strictly psychoeducation, not intervention
+- Avoid clinical jargon (e.g., 'cognitive mediation'); use plain language ('how your thoughts shape your feelings')
 
 ## Output Contract
 
-- Client verbally identifies A, B, and C in a personally relevant example, distinguishing belief (B) as separate from event (A) and outcome (C).
+- Client verbally restates ABC structure with personal example and identifies their own B as modifiable
 
 ## Example Therapist Responses
 
 ### Example 1
 
-- Client/Input: Client says: 'I got passed over for the internship — now I’ll never get a good job.'
-- Therapist/Output: Therapist: 'Let’s break that down. What happened? [A: passed over] What went through your mind right then? [B: 'I’ll never get a good job'] And what did you feel or do after? [C: stopped applying, felt numb]. Notice — the 'never get a job' thought is what links the event to the feeling.'
-- Notes: Uses client’s exact phrasing to anchor the model.
+- Client/Input: Client says: 'My mom yelled at me, so I shut down and cried.'
+- Therapist/Output: Therapist: 'So A was her yelling — something you heard. C was shutting down and crying — how you felt and acted. What went through your mind right when she started yelling? That’s the B.'
+- Notes: Uses client’s language ('yelled', 'shut down') to anchor A and C before inviting B.
 
 ### Example 2
 
-- Client/Input: Client states: 'My roommate left without saying goodbye — she must hate me.'
-- Therapist/Output: Therapist: 'So the event was her leaving quietly [A]. The thought that popped up was 'she must hate me' [B]. And the result was feeling rejected and crying [C]. Would it be different if the thought had been 'maybe she was rushed'? Let’s hold that idea gently.'
-- Notes: Introduces flexibility without challenging B yet.
-
-## Objective
-
-introduce cognitive mediation model
-## Applicable Signals
-
-- client says 'This always happens because I’m worthless' or 'Nothing ever works out for me'
-- client attributes mood shifts solely to external events without noticing internal interpretations
-- Client says 'X made me feel Y'
-- Client denies influence of thoughts on feelings
-- Client struggles to separate event from interpretation
-
-## Contraindications
-
-- client is in acute suicidal crisis
-- client has severe cognitive impairment limiting abstract reasoning
-- client is in acute crisis or safety risk
-
-## Workflow Steps
-
-- 1. Name the model and its purpose: 'a tool to understand how thoughts connect events to feelings'
-- 2. Define A, B, C with brief examples (e.g., A = failed quiz; B = 'I’m a failure'; C = withdrawal, hopelessness)
-- 3. Illustrate mediation: 'It’s not the quiz that made you feel hopeless — it’s what the quiz meant to you'
-- 4. Co-construct one A-B-C from client’s life, using their words
-- 5. Confirm understanding: 'Can you point to which part was the event, which was your thought, and which was the feeling?'
-
-## Constraints
-
-- Avoid jargon; use concrete, non-stigmatizing language (e.g., 'thoughts' instead of 'irrational beliefs')
-- Use only neutral, non-pathologizing language (e.g., 'common thinking pattern' not 'faulty belief')
-- Do not proceed to cognitive restructuring until client demonstrates basic A-B-C differentiation
-
-## Cautions
-
-- Do not imply blame or oversimplify depression as 'just thinking wrong'; frame beliefs as habitual patterns open to gentle exploration
-- Monitor for shame or defensiveness when introducing B — pause and validate before continuing
-- Do not use if client is actively dissociating or unable to sustain attention for 3–5 minutes
-- Pause and assess comprehension after each component before advancing
-
-## Output Contract
-
-- Client verbally identifies A, B, and C in a personally relevant example, distinguishing belief (B) as separate from event (A) and outcome (C).
-
-## Example Therapist Responses
-
-### Example 1
-
-- Client/Input: Client says: 'I got passed over for the internship — now I’ll never get a good job.'
-- Therapist/Output: Therapist: 'Let’s break that down. What happened? [A: passed over] What went through your mind right then? [B: 'I’ll never get a good job'] And what did you feel or do after? [C: stopped applying, felt numb]. Notice — the 'never get a job' thought is what links the event to the feeling.'
-- Notes: Uses client’s exact phrasing to anchor the model.
-
-### Example 2
-
-- Client/Input: Client states: 'My roommate left without saying goodbye — she must hate me.'
-- Therapist/Output: Therapist: 'So the event was her leaving quietly [A]. The thought that popped up was 'she must hate me' [B]. And the result was feeling rejected and crying [C]. Would it be different if the thought had been 'maybe she was rushed'? Let’s hold that idea gently.'
-- Notes: Introduces flexibility without challenging B yet.
+- Client/Input: Client: 'I failed the test, so I’m worthless.'
+- Therapist/Output: Therapist: 'A is the test result — a fact. C is feeling worthless — an emotional consequence. The 'so' part — 'I’m worthless' — that’s the B. It’s not the only possible B about that A. Does that make sense?'
+- Notes: Highlights the logical connector ('so') as a cue for B; normalizes B as common, not pathological.
 
 ## Files
 
@@ -150,10 +94,8 @@ introduce cognitive mediation model
 
 ## Triggers
 
-- client presents with depressive symptoms and rigid causal attributions
-- therapist needs to establish shared cognitive framework
-- client attributes emotional distress directly to external events
-- client lacks awareness of interpretive role in emotional response
+- client attributes distress to external events
+- client lacks metacognitive awareness of belief-emotion link
 
 ## Examples
 
@@ -161,26 +103,26 @@ introduce cognitive mediation model
 
 Input:
 
-  Client says: 'I got passed over for the internship — now I’ll never get a good job.'
+  Client says: 'My mom yelled at me, so I shut down and cried.'
 
 Output:
 
-  Therapist: 'Let’s break that down. What happened? [A: passed over] What went through your mind right then? [B: 'I’ll never get a good job'] And what did you feel or do after? [C: stopped applying, felt numb]. Notice — the 'never get a job' thought is what links the event to the feeling.'
+  Therapist: 'So A was her yelling — something you heard. C was shutting down and crying — how you felt and acted. What went through your mind right when she started yelling? That’s the B.'
 
 Notes:
 
-  Uses client’s exact phrasing to anchor the model.
+  Uses client’s language ('yelled', 'shut down') to anchor A and C before inviting B.
 
 ### Example 2
 
 Input:
 
-  Client states: 'My roommate left without saying goodbye — she must hate me.'
+  Client: 'I failed the test, so I’m worthless.'
 
 Output:
 
-  Therapist: 'So the event was her leaving quietly [A]. The thought that popped up was 'she must hate me' [B]. And the result was feeling rejected and crying [C]. Would it be different if the thought had been 'maybe she was rushed'? Let’s hold that idea gently.'
+  Therapist: 'A is the test result — a fact. C is feeling worthless — an emotional consequence. The 'so' part — 'I’m worthless' — that’s the B. It’s not the only possible B about that A. Does that make sense?'
 
 Notes:
 
-  Introduces flexibility without challenging B yet.
+  Highlights the logical connector ('so') as a cue for B; normalizes B as common, not pathological.

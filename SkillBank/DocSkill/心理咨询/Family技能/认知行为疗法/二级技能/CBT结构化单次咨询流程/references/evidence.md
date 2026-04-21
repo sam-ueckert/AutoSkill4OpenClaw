@@ -1,7 +1,7 @@
 # CBT结构化单次咨询流程 Evidence
 
 - family: 认知行为疗法
-- skill_id: 58a72763-c462-57dc-8719-37c97a1471a3
+- skill_id: da8f7267-e118-53a8-b9ba-1019b41afd1f
 - support_count: 1
 
 ## Evidence 1

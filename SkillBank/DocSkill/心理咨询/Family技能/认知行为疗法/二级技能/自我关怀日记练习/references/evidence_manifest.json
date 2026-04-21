@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "d7f6c688-1455-5ee4-9096-a9d084fbc538",
+  "skill_id": "6e4983a8-8f73-5622-b068-683a1c33169f",
   "skill_name": "自我关怀日记练习",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework/session_framework",
         "asset_level": 2,
         "visible_role": "parent",
-        "objective": "通过结构化写作完成认知重构与自我支持性回应训练",
+        "objective": "通过结构化写作干预实现认知重构与情绪调节",
         "task_family": "认知行为干预",
-        "method_family": "CBT（认知行为疗法）",
+        "method_family": "CBT",
         "stage": "认知重构阶段",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "879826fd-c6f3-5c65-a4b5-726f84c0bef1",
         "window_strategy": "strict",
         "anchor_hits": [

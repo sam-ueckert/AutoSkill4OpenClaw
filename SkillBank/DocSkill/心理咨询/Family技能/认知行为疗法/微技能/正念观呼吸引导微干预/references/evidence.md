@@ -1,7 +1,7 @@
 # 正念观呼吸引导微干预 Evidence
 
 - family: 认知行为疗法
-- skill_id: 3a203a25-1484-5b62-a1fe-e9b91a028c0d
+- skill_id: 2e61b7b6-8538-584b-9390-f45ed5805e56
 - support_count: 1
 
 ## Evidence 1
@@ -13,7 +13,7 @@
 - source_file: /Users/panc/AutoSkill/Psy_markdown/cbt/1例青少年抑郁症辩证行为治疗的个案报告_杨天宇.md
 - section: 4治疗目标及过程
 - span: 3700:5188
-- confidence: 0.97
+- confidence: 0.95
 - quote: 表1团体形式开展技能训练
 
 <table><tr><td>时间</td><td>主题</td><td>具体内容</td></tr><tr><td>第一周</td><td>建立团体+正念</td><td>①破冰活动；②行为链分析；③正念技能+智慧心</td></tr><tr><td>第二周</td><td>痛苦耐受</td><td>①正念身体扫描；②STOP技能;③利弊分析+自我安抚</td></tr><tr><td>第三周</td><td>痛苦耐受</td><td>①正念行走练习；②TIP技能</td></tr><tr><td>第四周</td><td>情绪调节</td><td>①正念观情绪练习；②情绪模式图讲解；③命名情绪</td></tr><tr><td>第五周</td><td>情绪调节</td><td>①正念观想法练习；②核查事实技能；③相反行为+问题解决</td></tr><tr><td>第六周</td><td>情绪调节+人际效能</td><td>①正念交流练习；②ABCplease技能；③人际效能目标澄清</td></tr><tr><td>第七周</td><td>人际效能</td><td>①正念慈悲心练习；②DEARMAN节能;③FAST技能</td></tr><tr><td>第八周</td><td>人际效能+结束团体</td><td>①正念回顾；②GIVE技能；③THINK技能；④结束团体</td></tr></table>

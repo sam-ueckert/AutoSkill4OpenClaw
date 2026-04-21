@@ -1,7 +1,7 @@
 # 苏格拉底式提问引导认知重评 Evidence
 
 - family: 认知行为疗法
-- skill_id: cd68520f-271a-5f08-bed3-eccc6171018f
+- skill_id: b9382514-564e-5368-9802-2629ddbee41b
 - support_count: 1
 
 ## Evidence 1

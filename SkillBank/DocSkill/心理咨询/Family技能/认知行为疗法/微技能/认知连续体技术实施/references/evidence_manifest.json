@@ -1,6 +1,6 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
   "skill_id": "4ff3789d-752e-58da-bf76-dffa1118242c",
   "skill_name": "认知连续体技术实施",
@@ -36,6 +36,7 @@
         "stage": "认知干预",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "6ecd9a7e-0112-5153-80dc-a2e71df50f24",
         "window_strategy": "strict",
         "anchor_hits": [],

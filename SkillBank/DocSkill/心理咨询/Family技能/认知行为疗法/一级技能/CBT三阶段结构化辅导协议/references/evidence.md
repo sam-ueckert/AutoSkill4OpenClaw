@@ -1,7 +1,7 @@
 # CBT三阶段结构化辅导协议 Evidence
 
 - family: 认知行为疗法
-- skill_id: 1573aca7-2dc6-5845-9d1e-cb9a4205ae39
+- skill_id: e1ac546a-35ac-5a81-a7ad-0dca9a0a27b7
 - support_count: 1
 
 ## Evidence 1

@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:12+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "38c537c1-35df-5528-b621-f93a55da1cc7",
+  "skill_id": "bd01d01b-48e1-5104-8670-87edee15b06e",
   "skill_name": "正念认知疗法结构化疗程框架",
   "support_count": 1,
   "supports": [
@@ -31,11 +31,12 @@
         "asset_level": 1,
         "visible_role": "parent",
         "objective": "提供可复用的MBCT跨阶段治疗节奏与内容编排逻辑",
-        "task_family": "认知行为疗法",
+        "task_family": "structured_intervention_delivery",
         "method_family": "CBT",
-        "stage": "multi-session treatment delivery",
+        "stage": "multi_stage_treatment",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "4ffd84b9-1d80-5cec-a171-bff16cb6fb39",
         "window_strategy": "strict",
         "anchor_hits": [
@@ -50,7 +51,6 @@
         ],
         "parent_heading": "",
         "sibling_headings": [
-          "1例正念认知疗法应用于社交焦虑障碍的案例报告",
           "1个案情况",
           "2 个案概念化",
           "4结果",
@@ -66,8 +66,8 @@
           "3.7 第18\\~19次"
         ],
         "context_snippets": [],
-        "heading_number": "3",
-        "heading_kind": "markdown_decimal",
+        "heading_number": "",
+        "heading_kind": "outline_llm",
         "section_summary": "本案例在精神专科医院心理中心进行心理治疗，治疗设置为：1次/周， $5 0 \\mathrm { { m i n } } /$ 次，共进行19次治疗。"
       }
     }

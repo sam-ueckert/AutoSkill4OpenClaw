@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "e40b00c4-8570-5a74-8ec1-a928967255ad",
+  "skill_id": "08eaffc0-49c5-5610-802e-7b8783b32ae6",
   "skill_name": "ASIF角色代入引导",
   "support_count": 1,
   "supports": [
@@ -31,11 +31,12 @@
         "asset_level": 3,
         "visible_role": "leaf",
         "objective": "促进家庭成员间理解与情感和解",
-        "task_family": "家庭系统干预",
+        "task_family": "家庭关系修复",
         "method_family": "后现代主义",
-        "stage": "认知重构",
+        "stage": "干预中段",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "6dbc9c9c-412a-524e-a137-83358a37dcf3",
         "window_strategy": "strict",
         "anchor_hits": [
@@ -50,12 +51,12 @@
         ],
         "parent_heading": "",
         "sibling_headings": [
-          "1例家庭矛盾大学生整合式心理咨询案例报告",
           "1个案信息",
           "2 个案评估",
           "3基于4P模型的个案概念化",
           "4 咨询方案",
-          "6 咨询效果"
+          "6 咨询效果",
+          "7讨论"
         ],
         "subsection_headings": [
           "5.2第2次咨询：建立家庭问题的系统观，增进自我认知，建立边界",

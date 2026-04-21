@@ -1,7 +1,7 @@
 # CBT认知概念化建模 Evidence
 
 - family: 认知行为疗法
-- skill_id: 3b9ab464-8460-56e5-b767-302e4c3d3ee0
+- skill_id: 83372cc5-d3b7-5b7f-a10c-07163c0d8332
 - support_count: 1
 
 ## Evidence 1

@@ -1,7 +1,7 @@
 # 正念认知疗法结构化疗程框架 Evidence
 
 - family: 认知行为疗法
-- skill_id: 38c537c1-35df-5528-b621-f93a55da1cc7
+- skill_id: bd01d01b-48e1-5104-8670-87edee15b06e
 - support_count: 1
 
 ## Evidence 1

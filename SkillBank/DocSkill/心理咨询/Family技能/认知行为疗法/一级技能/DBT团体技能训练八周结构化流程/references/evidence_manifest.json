@@ -1,8 +1,8 @@
 {
   "schema": "autoskill.document.evidence_manifest.v1",
-  "generated_at": "2026-03-23T08:16:33+00:00",
+  "generated_at": "2026-04-08T11:05:11+00:00",
   "family_name": "认知行为疗法",
-  "skill_id": "dbc123f8-c000-59f2-9caa-7e78252bc6b8",
+  "skill_id": "5d3672c5-29a1-5235-91cc-87330dc9ec36",
   "skill_name": "DBT团体技能训练八周结构化流程",
   "support_count": 1,
   "supports": [
@@ -30,12 +30,13 @@
         "asset_path": "family_root/treatment_framework",
         "asset_level": 1,
         "visible_role": "parent",
-        "objective": "提供可复用的DBT团体干预主干结构",
-        "task_family": "DBT技能教学",
+        "objective": "提供可复用的DBT团体干预时间线与内容编排逻辑",
+        "task_family": "skills_training",
         "method_family": "CBT",
         "stage": "treatment_delivery",
         "domain_type": "psychology",
         "taxonomy_id": "psychology",
+        "candidate_slot": 1,
         "window_id": "8ea6080c-93aa-599d-8e6c-453822165d80",
         "window_strategy": "strict",
         "anchor_hits": [
