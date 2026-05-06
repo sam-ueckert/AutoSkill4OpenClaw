@@ -1,4 +1,4 @@
-export DASHSCOPE_API_KEY="sk-8480a5c7f4e041678f109615de9ea0de"
+export DASHSCOPE_API_KEY=""
 
 python -m autoskill.offline.conversation.self_evolve.eval \
   --run-root log/self-evolve/2026-0416-1233/Reflection \
