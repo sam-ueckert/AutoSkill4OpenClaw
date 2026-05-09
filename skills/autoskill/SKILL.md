@@ -1,6 +1,6 @@
 ---
 name: autoskill
-description: Manage local Agent Skill files as an installable skill manager. Proactively and periodically detect reusable skill material during or after meaningful sessions, including when the user asks to remember, extract, update, improve, merge, deduplicate, or create skills; scan local skill folders for similar skills; decide discard vs improve vs merge vs create; optimize trigger descriptions; and maintain `SKILL.md` plus optional resources using skill-creator-style conventions.
+description: Manage local Agent Skill files as an installable skill manager. Proactively and periodically detect reusable skill material during or after meaningful sessions; run non-blocking extraction checks; score candidates by evidence, recurrence, and value; search similar local skills; fully draft proposed skills or diffs before asking for approval; then, after explicit user approval, discard, improve, merge, or create `SKILL.md` folders using skill-creator-style conventions. Use when maintaining, deduplicating, extracting, improving, merging, or creating local agent skills.
 ---
 
 # Local Skill File Manager
@@ -19,7 +19,7 @@ Maintain the user's local skill files as a lightweight self-improving memory sys
     assets/              (optional)
 ```
 
-Use this skill to decide when a session contains reusable skill material, find whether a similar skill already exists, then discard, improve, merge, or create a local skill. The model should initiate this check when signals appear; it should not wait for the user to ask.
+Use this skill to decide when a session contains reusable skill material, find whether a similar skill already exists, then discard, improve, merge, or create a local skill. The model should initiate this check when signals appear; it should not wait for the user to ask. The check must stay lightweight and non-blocking unless the user explicitly asks to focus on skill maintenance.
 
 ## Related Skill Coordination
 
@@ -28,6 +28,7 @@ This skill owns the lifecycle decision: when to extract, whether to discard, whe
 - Use `skill-creator` for new skill structure, naming, resource placement, `agents/openai.yaml`, and validation.
 - Use `skill-improvement` or equivalent improvement guidance for existing-skill iteration, test prompts, failure analysis, trigger-description tuning, and before/after comparison.
 - Use `skill-finder`, `find-skills`, or equivalent discovery tools to search local or external skill ecosystems before creating a duplicate.
+- Borrow self-improvement patterns only as decision heuristics: event triage, deduplication, recurrence, priority, value checks, and promotion gates. Do not adopt another skill's storage paths, daemon assumptions, or code structure unless the user asks.
 - If those helper skills are unavailable, apply the built-in procedures below. Do not block on missing helper skills.
 - Do not let helper skills weaken the extraction boundary: only reusable, user-evidenced capability changes should be saved.
 
@@ -39,6 +40,8 @@ Local skills can influence future agent behavior and may include executable scri
 - Do not add surprising capabilities, hidden network access, credential handling, data exfiltration, or destructive commands.
 - If a skill adds scripts or tool integrations, make their purpose visible in `SKILL.md`.
 - When editing a skill that may be shared with a team, preserve organization policies and ask before changing security-sensitive behavior.
+- Before the first persistent learning note or skill write in a new local convention, tell the user what path would be written and ask for approval.
+- Do not silently modify this `autoskill` manager itself during routine maintenance. Improve it only when the user explicitly asks to improve this skill.
 
 ## Skill Roots
 
@@ -55,10 +58,16 @@ Before writing anything, identify where local skills live.
 Use a three-layer trigger policy:
 
 1. Silent scan: after each substantive user turn, briefly ask whether the turn contains a reusable rule, correction, workflow, preference, failure, or skill-quality issue.
-2. Extraction check: when a trigger below fires, classify the experience and test it against the extraction boundary.
-3. Write/update: only edit local skill files when the candidate passes the boundary and the target skill root is clear.
+2. Extraction check: when a trigger below fires, classify the experience, assign evidence and value, search for similar skills, and test it against the extraction boundary.
+3. Write/update: only edit local skill files after the candidate passes the boundary, the target skill root is clear, and the user approves the exact change.
 
 The model should proactively initiate scans and extraction checks. Do not ask the user "should I check for a skill?" Ask only when the target root is ambiguous, the edit would overwrite uncertain behavior, or the user must approve an external install or sensitive script.
+
+## Candidate Lifecycle
+
+Keep the lifecycle separate from any particular storage system: observe a signal, draft a candidate, de-duplicate by pattern, decide `discard`/`keep_note`/`improve`/`merge`/`create`, show the complete proposed skill or diff, then apply the smallest approved change and validate.
+
+De-duplicate by task family, trigger, tools, failure mode, output contract, and target skill rather than exact wording. Do not create a private database, daemon, scheduler, or hidden background store as part of this skill.
 
 ## Background Execution
 
@@ -67,34 +76,36 @@ Skill extraction and maintenance must not block the user's main task.
 - Treat extraction checks, similar-skill search, candidate drafting, and trigger-eval preparation as background maintenance work whenever possible.
 - Background work may prepare candidates, find similar skills, and draft diffs, but it must not write, update, delete, install, or enable skills without user confirmation.
 - Continue the primary user request first; do not make the user wait for skill extraction unless the user explicitly asked to focus on skill maintenance.
-- If background work is still running when the main task is ready, finish the main response and mention that skill maintenance may continue or be reported later.
 - Surface background results only when there is an actionable candidate decision, proposed file diff, or clarification/consent question.
 - Run at most one background skill-maintenance job per active conversation unless the user asks for a batch; queue or coalesce extra signals.
 - Do not start expensive searches, broad evals, or large rewrites in the foreground. Use lightweight checks first, then defer deeper validation to a natural pause or explicit maintenance pass.
-- If the runtime cannot actually run background work, emulate it by deferring the maintenance check until after the current answer is complete.
+- If the runtime cannot actually run background work, emulate it by deferring the maintenance check until after the current answer is complete or the next natural pause.
+- Never block delivery of the user's requested work just to finish candidate extraction, unless the requested work is skill maintenance itself.
 
 ## Confirmation Gate
 
-User confirmation is required before any skill file is created, updated, deleted, imported, installed, enabled, or materially rewritten.
+User confirmation is required before any skill file is created, updated, deleted, imported, installed, enabled, or materially rewritten. Draft first, ask second: never ask "should I add/update a skill?" until the proposed content or change is already written out for review.
 
 For `create`, show before writing:
 
 - proposed skill name and target path
 - why the candidate passed the reusable-skill boundary
+- evidence level, recurrence signal, priority, and value signal
 - similar skills checked and why this is not a duplicate
-- complete proposed `SKILL.md` content or a concise preview plus offer to show the full content
-- any proposed `agents/openai.yaml`, scripts, references, or assets
+- complete proposed `SKILL.md` content
+- complete proposed `agents/openai.yaml` and every proposed script, reference, or asset text when such files are small enough to review inline; for large assets, show the exact file list, purpose, provenance, and generated diff or manifest
 
 For `improve` or `merge`, show before writing:
 
 - exact target skill path
 - decision type: `improve` or `merge`
 - why the change belongs in that existing skill
-- a concise diff or before/after summary of every changed section, especially frontmatter `description`, workflow, constraints, triggers, and resource references
-- any files that would be added, modified, or left untouched
+- evidence level, recurrence signal, priority, and value signal
+- a complete unified diff, or complete before/after text for every changed section when a unified diff is unavailable
+- every file that would be added, modified, deleted, or left untouched
 - validation plan or command to run after approval
 
-Ask for a clear yes/no approval before applying the change. If the user does not approve, do not edit the skill; report the candidate as deferred or discarded.
+Ask for a clear yes/no approval only after showing the full proposed artifact or diff. If the user does not approve, do not edit the skill; report the candidate as deferred or discarded.
 
 ## Immediate Triggers
 
@@ -106,14 +117,7 @@ Run an extraction check immediately, or at the next natural pause if the user is
 - The agent repeats non-trivial setup, scripting, transformation, or validation work that should become a reusable resource.
 - A similar local skill under-triggered, over-triggered, or produced incomplete guidance.
 - The session reveals a missing reference, template, script, or checklist that would prevent future repeated effort.
-- The user uses future-oriented language such as:
-
-- "Remember this as a skill."
-- "Save this workflow."
-- "Update the local skill."
-- "Next time, do it this way."
-- "This is my standard process."
-- "Create a skill from this conversation."
+- The user uses future-oriented language such as "remember this as a skill", "save this workflow", "update the local skill", "next time, do it this way", "this is my standard process", or "create a skill from this conversation".
 
 Still treat extraction as a check, not a requirement: no skill change is often the correct outcome.
 
@@ -140,19 +144,24 @@ Prevent noisy repeated extraction:
 - Prefer `keep_note` or `discard` for borderline signals until repetition strengthens the evidence.
 - If a candidate is close but not yet reusable enough, remember the rationale in the completion note instead of creating a skill.
 - Coalesce simultaneous triggers into one background maintenance pass.
+- When multiple candidates compete, handle the highest-priority repeated failure or user-confirmed preference first.
 
 ## Experience Triage
 
-Before changing skills, classify the session experience. This mirrors self-improvement systems that separate raw experience from durable memory.
+Before changing skills, classify the session experience. Durable categories are `error`, `correction`, `best_practice`, `knowledge_gap`, and `preference`. `one_off_result` means the session produced useful work but no durable process change.
 
-- Error: a command, workflow, integration, or agent action failed.
-- Correction: the user said the output or approach was wrong and supplied the preferred behavior.
-- Best practice: the user or agent discovered a better reusable way to do the work.
-- Knowledge gap: the agent lacked a capability, used stale knowledge, or needed a missing reference.
-- Preference: the user expressed a stable style, tooling, or output preference.
-- One-off result: the session produced useful work but no durable process change.
+Only durable categories can become skill changes, and only after passing the extraction boundary. One-off results should not be promoted.
 
-Only the first five categories can become skill changes, and only after passing the extraction boundary. One-off results should not be promoted.
+## Value And Priority Gate
+
+- Priority `P0`: prevents unsafe, destructive, privacy-sensitive, or repeatedly failing behavior.
+- Priority `P1`: prevents a significant recurring mistake, missed trigger, bad merge, or expensive repeated workflow.
+- Priority `P2`: improves quality, speed, or clarity for a recurring task family.
+- Priority `P3`: convenience or style improvement with limited evidence.
+
+Promote by durable value, not novelty. Value must be explainable as reliability, safety, speed, quality, consistency, or reduced repeated work. If no value dimension is clear, discard or keep a non-persistent note.
+
+Change one behavioral lever at a time when improving an existing skill: trigger wording, workflow step, validation gate, resource placement, or safety constraint.
 
 ## Promotion Rules
 
@@ -160,7 +169,7 @@ Do not turn every experience into a skill edit. Promote experiences deliberately
 
 - Promote immediately when the user explicitly says the rule should apply next time.
 - Promote immediately when a correction prevents a serious repeated failure, unsafe action, or destructive workflow.
-- Promote after repetition when the same error, correction, or best practice appears across multiple similar tasks.
+- Promote after repetition when the same error, correction, or best practice appears across multiple similar tasks. As a default, require 2 distinct tasks or 3 comparable uses for assistant-inferred practices.
 - Merge into an existing skill when the experience refines a known capability.
 - Create a new skill only when the experience reveals a distinct reusable capability.
 - Keep as a note or completion summary, not a skill, when the evidence is useful but not yet reusable enough.
@@ -173,10 +182,16 @@ When a learning note or improvement rationale is needed, use a compact structure
 
 ```text
 type: error | correction | best_practice | knowledge_gap | preference
+status: candidate | deferred | approved | applied | discarded
 summary: one sentence
 source: user_feedback | command_error | task_result | review
 context: task family, relevant files/tools, and what happened
 lesson: reusable rule or missing capability
+pattern_key: stable phrase for deduplicating similar experiences
+evidence_level: strong | medium | weak
+recurrence: first_seen | repeated | user_confirmed
+priority: P0 | P1 | P2 | P3
+value_signal: reliability | safety | speed | quality | consistency | reduced_rework
 suggested_action: discard | improve <skill> | merge <skill> | create <skill> | keep_note
 sensitivity: public | private | contains_sensitive_details
 ```
@@ -187,14 +202,7 @@ Redact secrets, personal data, credentials, private URLs, and customer-specific 
 
 Prefer improving an existing skill over creating a new one when the session reveals a quality issue in a skill that already exists.
 
-Improve a skill when:
-
-- It under-triggers: the skill should have applied, but the user had to ask again or correct behavior manually.
-- It over-triggers: the skill is too broad and appears in tasks it should not govern.
-- It gives incomplete guidance: future agents need clearer steps, sharper constraints, examples, or validation checks.
-- It causes repeated work: agents keep recreating the same script, template, checklist, or reference material.
-- It is too narrow: it memorizes one case instead of explaining the reusable pattern.
-- It is too bloated: long instructions or resources are not pulling their weight.
+Improve a skill when it under-triggers, over-triggers, gives incomplete guidance, causes repeated work, memorizes one case instead of the reusable pattern, or is too bloated for the value it provides.
 
 Do not "improve" a skill just to add topical payload from the current session. Improvement must increase future reuse quality.
 
@@ -218,13 +226,11 @@ Do not extract when any test fails:
 - The rule appears only in assistant output and was not requested, accepted, corrected, or reinforced by the user.
 - De-identification removes the useful substance.
 - A similar local skill already covers it and the candidate adds no durable user-specific improvement.
+- The candidate only reflects what the assistant happened to do successfully once.
+- The apparent pattern comes from silence, politeness, or lack of user correction rather than evidence.
+- The candidate would make an existing skill broader without improving a concrete future behavior.
 
-Decision line:
-
-```text
-This-instance content -> do not extract.
-Reusable method, preference, workflow, output contract, tool rule, or quality gate -> consider extraction.
-```
+Decision line: this-instance content -> do not extract; reusable method, preference, workflow, output contract, tool rule, or quality gate -> consider extraction.
 
 ## Evidence Levels
 
@@ -293,7 +299,9 @@ rg -n "<keyword|task|output-type>" <skill-root>
    - triggers, examples, tags, or equivalent usage hints
    - resource directories and paths
 
-5. If external ecosystem search is requested, present candidates and install commands, but do not install or overwrite local skills without user consent.
+5. Compare the candidate against matches using the same pattern key: task family, trigger, tools, failure mode, output contract, and success criteria.
+
+6. If external ecosystem search is requested, present candidates and install commands, but do not install or overwrite local skills without user consent.
 
 ## Decision Rules
 
@@ -313,6 +321,7 @@ Choose one outcome.
 - The issue is trigger accuracy, unclear instructions, missing validation, bloated guidance, stale details, or missing reusable resources.
 - The session provides evidence for a better general version of that same skill.
 - No new standalone capability is needed.
+- The improvement can be expressed as a small, evaluable change to the existing skill.
 
 `merge` when:
 
@@ -327,6 +336,7 @@ Choose one outcome.
 - No local skill covers the same capability.
 - Its job-to-be-done, deliverable, audience, tool context, workflow, or success criteria materially differ from existing skills.
 - It is likely to be reused enough to justify a new skill folder.
+- It has a clear trigger surface and does not depend on the original session context.
 
 Prefer `discard` over creating vague skills. Prefer `improve` for skill-quality failures. Prefer `merge` over creating duplicate skills. Prefer `create` only for a distinct reusable capability.
 
@@ -354,6 +364,7 @@ Use this loop for non-trivial changes to an existing local skill.
    - Fix the broader pattern, not only the example that failed.
    - Explain the reason behind important instructions so future agents can adapt instead of following brittle rules.
    - Avoid rigid all-caps rules when a short rationale would guide behavior better.
+   - Change one lever at a time unless the user approved a broader rewrite.
 
 4. Keep the skill lean.
    - Remove instructions that do not affect outcomes.
@@ -366,6 +377,7 @@ Use this loop for non-trivial changes to an existing local skill.
    - Prefer realistic near-misses over obviously irrelevant negative cases.
    - For objective skills, include clear expected outputs or checks; for subjective skills, use human review criteria.
    - Prefer external signals: user feedback, task outputs, tests, or review notes. Do not rely on self-critique alone for major rewrites.
+   - Compare before/after behavior when possible, especially for trigger descriptions and over-trigger risk.
 
 6. Iterate.
    - Apply the smallest general fix.
@@ -383,7 +395,12 @@ Self-improvement can drift if the agent keeps rewriting from its own guesses. Us
 - Avoid adding broad meta-rules that make the skill trigger everywhere.
 - Prefer small, reversible edits over large rewrites.
 - Review and prune stale or over-specific rules when they stop matching current user behavior.
+- Do not keep self-editing in a loop because a new idea feels plausible. Require evidence or user approval for each iteration.
 - If two improvement rounds do not improve outcomes, stop and ask for user judgment.
+
+## Acceptance Checks
+
+Before asking the user to approve a skill write, ensure it is self-contained, minimal, non-duplicative, confirmable, validatable, and privacy-safe. The user must see the exact target path plus the complete proposed skill content or complete diff before the approval question.
 
 ## Merge Procedure
 

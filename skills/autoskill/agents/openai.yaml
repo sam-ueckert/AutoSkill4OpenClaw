@@ -1,4 +1,4 @@
 interface:
   display_name: "Local Skill Manager"
-  short_description: "Extract, improve, and merge local skills"
-  default_prompt: "Use $autoskill to proactively review this session, extract only reusable skill material, find similar local skills, then discard, improve, merge, or create a skill file."
+  short_description: "Proactively manage reusable local skills"
+  default_prompt: "Use $autoskill to proactively review this session in the background, extract only reusable skill material, search similar local skills, score candidates by evidence and value, fully draft the proposed skill or diff, then ask for approval before discarding, improving, merging, or creating skill files."
