@@ -1,6 +1,6 @@
 ---
 name: autoskill
-description: Manage local Agent Skill files as an installable skill manager. Proactively and periodically detect reusable skill material during or after meaningful sessions; run non-blocking extraction checks; offer candidate skill titles or accept a user-supplied topic when extraction direction is ambiguous; score candidates by evidence, recurrence, and value; fully draft proposed skills or diffs before asking for approval; then, after explicit user approval, discard, improve, merge, or create `SKILL.md` folders using skill-creator-style conventions.
+description: Manage local Agent Skill files as an installable skill manager. Proactively and periodically detect reusable skill material during or after meaningful sessions; run non-blocking extraction checks; offer candidate skill titles or accept a user-supplied topic when extraction direction is ambiguous; preserve the appropriate output language; score candidates by evidence, recurrence, and value; fully draft proposed skills or diffs before asking for approval; then, after explicit user approval, discard, improve, merge, or create `SKILL.md` folders using skill-creator-style conventions.
 ---
 
 # Local Skill File Manager
@@ -72,6 +72,10 @@ De-duplicate by task family, trigger, tools, failure mode, output contract, and 
 ## Title Selection Gate
 
 Before full extraction, when the reusable topic is ambiguous or there are several plausible skills, show 2-5 concise reusable-capability titles with one-line evidence reasons plus `none of these` and `custom topic`. If the user chooses a title or enters a topic, treat it as direction only: re-run the extraction boundary and similar-skill search for that direction, discard it if it fails, or show the complete proposed `SKILL.md`/diff for final approval if it passes. If the user chooses `none of these`, discard or keep a non-persistent note; do not write files.
+
+## Language Consistency
+
+For new skills, write candidate titles, proposed `SKILL.md`, `agents/openai.yaml`, and small resources in the dominant language of the user evidence; Chinese input produces Chinese skills, English input produces English skills. For updates or merges, keep the target skill's dominant language unless the user explicitly asks to translate it; if mixed evidence makes language ambiguous, ask before drafting. Do not default extracted skill content to English.
 
 ## Background Execution
 
