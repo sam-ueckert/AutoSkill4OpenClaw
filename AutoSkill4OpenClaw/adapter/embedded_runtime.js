@@ -861,7 +861,10 @@ function createDefaultModelInvoker(cfg, api, log, deps = {}) {
       if (!target.baseUrl) {
         throw new Error("manual_not_configured");
       }
-      return callOpenAICompatible(target, request, invocationCfg, requestFn);
+      // Use target.model (manualModel) in the request body — not request.model
+      // which would carry the session model (e.g. anthropic/claude-sonnet-4-6)
+      // and fail OpenClaw's model validation.
+      return callOpenAICompatible(target, { ...request, model: target.model }, invocationCfg, requestFn);
     },
   };
 
